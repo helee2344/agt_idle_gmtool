@@ -10,6 +10,19 @@ var usersRouter = require('./routes/users');
 
 var app = express();
 
+// Allow cross-origin JSON POST requests, including browser preflight checks.
+app.use(function(req, res, next) {
+  res.setHeader('Access-Control-Allow-Origin', '*');
+  res.setHeader('Access-Control-Allow-Methods', 'GET, HEAD, POST, OPTIONS');
+  res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization');
+
+  if (req.method === 'OPTIONS') {
+    return res.sendStatus(204);
+  }
+
+  next();
+});
+
 // view engine setup
 
 app.use(express.static(path.join(__dirname, 'public')));

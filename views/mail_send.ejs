@@ -1122,7 +1122,9 @@ async function postRequest(){
   const btn = $('#btnPost'); updatePostButton(); const old = btn.textContent; btn.textContent = '전송 중...';
   try {
     alert(JSON.stringify(payload))
-    const res = await fetch(url, {method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify(payload)});
+    const res = await fetch(url, {method:'POST', headers:{
+      'Content-Type':'application/json'
+      }, body:JSON.stringify(payload)});
     const body = await res.text();
     if (!res.ok) throw new Error('HTTP '+res.status+' '+res.statusText+(body ? ' · '+body.slice(0,180) : ''));
     toast('POST 전송 성공 (HTTP '+res.status+')');
