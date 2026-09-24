@@ -1092,12 +1092,12 @@ async function postRequest(){
   if (postInFlight) return;
   if (!canPostImmediately()){ toast('HTTP POST 전송은 발송 목록의 모든 우편이 즉시 발송일 때만 가능합니다.', true); return; }
   const senderId = $('#postSenderId').value.trim();
-  const key = $('#postKey').value;
+  const sender_key = $('#postKey').value;
   if (!senderId){ toast('SENDER ID를 입력하세요.', true); $('#postSenderId').focus(); return; }
-  if (!key.trim()){ toast('KEY를 입력하세요.', true); $('#postKey').focus(); return; }
+  if (!sender_key.trim()){ toast('KEY를 입력하세요.', true); $('#postKey').focus(); return; }
   const url = postEndpoint;
   if (!url){ toast('.env의 POST_URL 설정을 확인하고 페이지를 새로고침하세요.', true); return; }
-  let payload; try { payload = {...buildRequestPayload(), sender_id: senderId, key}; } catch(e){ toast(e.message, true); return; }
+  let payload; try { payload = {...buildRequestPayload(), sender_id: senderId, sender_key: sender_key}; } catch(e){ toast(e.message, true); return; }
   if (!confirm('현재 우편 요청을 다음 주소로 POST 전송할까요?\n\n'+url)) return;
   postInFlight = true;
   const btn = $('#btnPost'); updatePostButton(); const old = btn.textContent; btn.textContent = '전송 중...';
