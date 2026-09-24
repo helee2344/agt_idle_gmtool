@@ -1087,6 +1087,7 @@ async function loadPostConfig(){
   updatePostButton();
   try {
     if (location.protocol === 'file:') throw new Error('npm start 실행 후 http://127.0.0.1:3000 에서 열어주세요.');
+    alert('<%=POST_URL_SEND_MAIL %>')
     const res = await fetch( '<%=POST_URL_SEND_MAIL %>', {cache:'no-store'});
     const config = await res.json();
     if (!res.ok) throw new Error(config.error || 'POST URL 설정을 읽지 못했습니다.');
