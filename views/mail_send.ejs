@@ -1098,7 +1098,7 @@ async function postRequest(){
   const url = postEndpoint;
   if (!url){ toast('.env의 POST_URL 설정을 확인하고 페이지를 새로고침하세요.', true); return; }
   let payload; try { payload = {...buildRequestPayload(), sender_id: senderId, sender_key: sender_key}; } catch(e){ toast(e.message, true); return; }
-  if (!confirm('현재 우편 요청을 다음 주소로 POST 전송할까요?\n\n'+url)) return;
+  if (!confirm('메일을 전송할까요?\n\n')) return;
   postInFlight = true;
   const btn = $('#btnPost'); updatePostButton(); const old = btn.textContent; btn.textContent = '전송 중...';
   try {
