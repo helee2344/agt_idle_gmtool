@@ -1,0 +1,1731 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>우편 발송 도구 — 아가타 키우기</title>
+<style>
+:root{
+  --bg:#E7EAF0; --surface:#FFFFFF; --surface2:#F3F5F8; --surface3:#EBEEF3;
+  --line:#D3D8E2; --line2:#E6E9EF;
+  --ink:#182230; --ink2:#5A6577; --ink3:#8A93A3;
+  --accent:#1F4FC9; --accent-hover:#183FA3; --accent-soft:#E8EEFC; --accent-line:#B9C8F1;
+  --ok:#1E8E5A; --ok-soft:#E4F5EC;
+  --warn:#9A6410; --warn-soft:#FFF4DF; --warn-line:#F0D8A8;
+  --err:#C63B3B; --err-soft:#FDECEC; --err-line:#F3BDBD;
+  --t1:#0E7C86; --t1-soft:#DDF3F5;
+  --t2:#7A3E9D; --t2-soft:#F0E4F7;
+  --t3:#B45309; --t3-soft:#FBEBD7;
+  --desk:#1B2436; --desk2:#232E45;
+  --mono:"JetBrains Mono","Cascadia Code","D2Coding",Consolas,"Courier New",monospace;
+  --sans:"Pretendard Variable",Pretendard,"Apple SD Gothic Neo","Noto Sans KR","Malgun Gothic",system-ui,-apple-system,sans-serif;
+  --r:6px;
+}
+*{box-sizing:border-box}
+html,body{margin:0;height:100%}
+body{font-family:var(--sans);font-size:14px;line-height:1.5;color:var(--ink);background:var(--bg);-webkit-font-smoothing:antialiased}
+button,input,select,textarea{font:inherit;color:inherit}
+h1,h2,h3{margin:0;font-weight:700}
+p{margin:0}
+[hidden]{display:none!important}
+a{color:var(--accent)}
+
+/* ---------- top bar ---------- */
+.topbar{height:56px;display:flex;align-items:center;justify-content:space-between;padding:0 20px;background:var(--surface);border-bottom:1px solid var(--line);position:sticky;top:0;z-index:20}
+.brand{display:flex;align-items:baseline;gap:12px}
+.brand h1{font-size:17px;letter-spacing:-.01em;white-space:nowrap}
+.brand p{font-size:12.5px;color:var(--ink3)}
+.top-actions{display:flex;gap:8px;align-items:center}
+
+/* ---------- buttons ---------- */
+.btn{display:inline-flex;align-items:center;gap:6px;height:34px;padding:0 13px;border:1px solid var(--line);border-radius:var(--r);background:var(--surface);color:var(--ink);cursor:pointer;white-space:nowrap;transition:background .12s,border-color .12s}
+.btn:hover{background:var(--surface2);border-color:#BEC5D2}
+.btn:focus-visible,input:focus-visible,select:focus-visible,textarea:focus-visible,.seg button:focus-visible{outline:2px solid var(--accent);outline-offset:1px}
+.btn.primary{background:var(--accent);border-color:var(--accent);color:#fff}
+.btn.primary:hover{background:var(--accent-hover);border-color:var(--accent-hover)}
+.btn.small{height:28px;padding:0 10px;font-size:13px}
+.btn.ghost{border-color:transparent;background:transparent;color:var(--ink2)}
+.btn.ghost:hover{background:var(--surface3);color:var(--ink)}
+.btn.danger{color:var(--err)}
+.btn.danger:hover{background:var(--err-soft);border-color:var(--err-line)}
+.btn:disabled{opacity:.5;cursor:not-allowed}
+.btn.icon{width:28px;padding:0;justify-content:center}
+
+/* ---------- layout ---------- */
+.layout{display:grid;grid-template-columns:272px minmax(520px,1fr) 440px;gap:12px;padding:12px 20px 20px;height:calc(100vh - 56px);min-height:600px}
+.pane{background:var(--surface);border:1px solid var(--line);border-radius:8px;display:flex;flex-direction:column;min-height:0;overflow:hidden}
+.pane-head{display:flex;align-items:center;justify-content:space-between;padding:12px 14px;border-bottom:1px solid var(--line2);flex:none}
+.pane-head h2{font-size:14px}
+.pane-body{overflow:auto;flex:1;min-height:0}
+.pane-foot{padding:10px 14px;border-top:1px solid var(--line2);display:flex;align-items:center;justify-content:space-between;gap:8px;flex:none}
+.muted{color:var(--ink3);font-size:12px}
+@media (max-width:1240px){
+  .layout{grid-template-columns:240px minmax(460px,1fr) 380px}
+}
+@media (max-width:1080px){
+  .layout{grid-template-columns:1fr;height:auto}
+  .pane{max-height:none}
+  .pane-body{overflow:visible}
+}
+
+/* ---------- condition list ---------- */
+.cond-list{padding:8px}
+.cond{display:block;width:100%;text-align:left;border:1px solid var(--line2);border-radius:var(--r);background:var(--surface);padding:10px 10px 9px;margin-bottom:6px;cursor:pointer;transition:border-color .12s,background .12s}
+.cond:hover{border-color:var(--line);background:var(--surface2)}
+.cond.selected{border-color:var(--accent);background:var(--accent-soft)}
+.cond .l1{display:flex;align-items:center;gap:6px;margin-bottom:3px}
+.cond .date{font-size:12.5px;color:var(--ink2);font-variant-numeric:tabular-nums}
+.cond .subj{font-weight:600;font-size:13.5px;line-height:1.35;overflow:hidden;text-overflow:ellipsis;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical}
+.cond .l3{display:flex;align-items:center;justify-content:space-between;margin-top:5px;font-size:12px;color:var(--ink3)}
+.cond .issues{display:flex;gap:4px}
+.badge{display:inline-flex;align-items:center;white-space:nowrap;height:18px;padding:0 6px;border-radius:4px;font-size:11px;font-weight:700;line-height:1;letter-spacing:.01em}
+.badge.t1{background:var(--t1-soft);color:var(--t1)}
+.badge.t2{background:var(--t2-soft);color:var(--t2)}
+.badge.t3{background:var(--t3-soft);color:var(--t3)}
+.badge.err{background:var(--err-soft);color:var(--err)}
+.badge.warn{background:var(--warn-soft);color:var(--warn)}
+.badge.ok{background:var(--ok-soft);color:var(--ok)}
+.badge.n{background:var(--surface3);color:var(--ink2)}
+.empty{padding:28px 16px;text-align:center;color:var(--ink3);font-size:13px;line-height:1.6}
+.empty strong{display:block;color:var(--ink2);font-size:14px;margin-bottom:4px}
+
+/* ---------- form ---------- */
+.form{padding:4px 18px 24px}
+.section{padding:16px 0 18px;border-bottom:1px solid var(--line2)}
+.section:last-of-type{border-bottom:0}
+.section > h3{font-size:14px;margin-bottom:12px;display:flex;align-items:center;justify-content:space-between}
+.section > h3 .hint{font-weight:400;font-size:12px;color:var(--ink3)}
+.row{display:grid;grid-template-columns:118px 1fr;gap:6px 12px;align-items:start;margin-bottom:10px}
+.row:last-child{margin-bottom:0}
+.row > label,.row > .lbl{padding-top:7px;font-size:13px;color:var(--ink2)}
+.row.top > label{padding-top:7px}
+.field{display:flex;flex-direction:column;gap:5px;min-width:0}
+.inline{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+.inline > *{min-width:0}
+input[type=text],input[type=number],input[type=date],select,textarea{height:34px;padding:0 10px;border:1px solid var(--line);border-radius:var(--r);background:var(--surface);width:100%;transition:border-color .12s}
+textarea{height:auto;min-height:88px;padding:7px 10px;line-height:1.5;resize:vertical}
+input:hover,select:hover,textarea:hover{border-color:#BEC5D2}
+input.invalid,textarea.invalid,select.invalid{border-color:var(--err);background:#FFF8F8}
+input[type=number]{width:110px}
+input.w-s{width:96px}
+.unit{color:var(--ink3);font-size:13px}
+.help{font-size:12px;color:var(--ink3);line-height:1.45}
+.help.ref{color:var(--ink2);background:var(--surface2);border-radius:4px;padding:5px 8px;border-left:2px solid var(--line)}
+.help.ref b{color:var(--ink3);font-weight:500;margin-right:6px}
+.seg{display:inline-flex;border:1px solid var(--line);border-radius:var(--r);overflow:hidden;background:var(--surface)}
+.seg button{height:32px;padding:0 13px;border:0;background:transparent;cursor:pointer;color:var(--ink2);border-right:1px solid var(--line)}
+.seg button:last-child{border-right:0}
+.seg button.on{background:var(--ink);color:#fff}
+.seg.t1 button.on{background:var(--t1)}
+.seg.t2 button.on{background:var(--t2)}
+.seg.t3 button.on{background:var(--t3)}
+#sendTimePresets .btn.on{background:var(--t3-soft);color:var(--t3);border-color:var(--t3)}
+.check{display:inline-flex;align-items:center;gap:7px;cursor:pointer;font-size:13px;color:var(--ink2);padding-top:0}
+.check input{width:15px;height:15px;margin:0;accent-color:var(--accent)}
+.lang-pair{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+.lang-pair > div{display:flex;flex-direction:column;gap:4px}
+.lang-pair span{font-size:11.5px;color:var(--ink3);padding-left:2px}
+.lang-pair.stack{grid-template-columns:1fr}
+.chips{display:flex;flex-wrap:wrap;gap:6px}
+.chip{height:27px;padding:0 10px;border:1px solid var(--line);border-radius:14px;background:var(--surface);cursor:pointer;font-size:12.5px;color:var(--ink2);display:inline-flex;align-items:center;gap:5px}
+.chip:hover{border-color:var(--accent-line);background:var(--accent-soft);color:var(--accent)}
+.chip .no{font-family:var(--mono);font-size:11px;color:var(--ink3)}
+.chip.on{background:var(--ink);border-color:var(--ink);color:#fff}
+.chip.on .no{color:#cbd2de}
+.datepresets{display:flex;gap:4px}
+
+/* item search */
+.search-wrap{position:relative}
+.search-wrap input{padding-left:32px}
+.search-wrap:before{content:"";position:absolute;left:11px;top:10px;width:12px;height:12px;border:2px solid var(--ink3);border-radius:50%;box-sizing:border-box}
+.search-wrap:after{content:"";position:absolute;left:21px;top:20px;width:6px;height:2px;background:var(--ink3);transform:rotate(45deg)}
+.results{position:absolute;left:0;right:0;top:38px;z-index:10;background:var(--surface);border:1px solid var(--line);border-radius:var(--r);box-shadow:0 8px 24px rgba(24,34,48,.12);max-height:300px;overflow:auto;padding:4px}
+.results li{list-style:none;display:grid;grid-template-columns:64px 1fr auto;gap:8px;align-items:center;padding:6px 8px;border-radius:4px;cursor:pointer;font-size:13px}
+.results li:hover,.results li.active{background:var(--accent-soft)}
+.results li .no{font-family:var(--mono);font-size:12px;color:var(--ink3)}
+.results li .en{color:var(--ink3);font-size:12px;margin-left:6px}
+.results .none{padding:10px;color:var(--ink3);font-size:13px}
+.results ul{margin:0;padding:0}
+
+/* item rows */
+.items{border:1px solid var(--line2);border-radius:var(--r);overflow:hidden;margin-top:10px}
+.items table{width:100%;border-collapse:collapse}
+.items th{font-weight:500;font-size:12px;color:var(--ink3);text-align:left;padding:7px 10px;background:var(--surface2);border-bottom:1px solid var(--line2)}
+.items td{padding:6px 10px;border-bottom:1px solid var(--line2);vertical-align:middle}
+.items tr:last-child td{border-bottom:0}
+.items .nm{font-weight:600}
+.items .nm small{font-weight:400;color:var(--ink3);margin-left:6px}
+.items .no{font-family:var(--mono);font-size:12px;color:var(--ink3)}
+.items input[type=number]{width:120px;height:30px;text-align:right}
+.items .box{font-size:12px;color:var(--ink2);margin-top:3px}
+.items .box b{color:var(--ink3);font-weight:500}
+.items .empty-row td{color:var(--ink3);text-align:center;padding:16px}
+.items .cnt-warn{color:var(--warn);font-size:11.5px;margin-top:2px}
+.grade{display:inline-block;width:8px;height:8px;border-radius:2px;margin-right:6px;vertical-align:1px}
+
+/* issues */
+.issues-box{margin:0 18px 18px;border-radius:var(--r);padding:10px 12px;font-size:13px;display:flex;flex-direction:column;gap:4px}
+.issues-box.err{background:var(--err-soft);border:1px solid var(--err-line);color:var(--err)}
+.issues-box.warn{background:var(--warn-soft);border:1px solid var(--warn-line);color:var(--warn)}
+.issues-box.ok{background:var(--ok-soft);color:var(--ok)}
+.issues-box div{display:flex;gap:8px;align-items:baseline}
+.issues-box .tag{font-size:11px;font-weight:700;flex:none;width:34px}
+
+/* ---------- preview pane ---------- */
+.tabs{display:flex;border-bottom:1px solid var(--line2);flex:none;padding:0 8px}
+.tabs button{height:42px;padding:0 9px;border:0;background:transparent;cursor:pointer;color:var(--ink2);border-bottom:2px solid transparent;margin-bottom:-1px;font-size:13px;white-space:nowrap}
+.tabs button.on{color:var(--ink);border-bottom-color:var(--ink);font-weight:600}
+.tabpanel{display:none;flex:1;min-height:0;overflow:auto}
+.tabpanel.on{display:flex;flex-direction:column}
+.desk{background:var(--desk);padding:18px;flex:1;min-height:0;overflow:auto;background-image:radial-gradient(rgba(255,255,255,.045) 1px,transparent 1px);background-size:14px 14px}
+.desk-meta{display:flex;align-items:center;justify-content:space-between;color:#9AA6BF;font-size:12px;margin-bottom:12px;gap:8px;flex-wrap:wrap}
+.desk-meta .seg{border-color:#3A4661;background:var(--desk2)}
+.desk-meta .seg button{color:#B8C2D6;border-color:#3A4661;height:26px;padding:0 10px;font-size:12px}
+.desk-meta .seg button.on{background:#fff;color:var(--ink)}
+.mail{background:#FBFBF9;border-radius:10px;overflow:hidden;box-shadow:0 12px 30px rgba(0,0,0,.35);border-top:5px solid var(--t1)}
+.mail.t2{border-top-color:var(--t2)}
+.mail.t3{border-top-color:var(--t3)}
+.mail-head{padding:14px 16px 10px;border-bottom:1px dashed var(--line);display:flex;justify-content:space-between;align-items:flex-start;gap:10px}
+.mail-from{font-size:12px;color:var(--ink3)}
+.mail-from b{display:block;font-size:14px;color:var(--ink);font-weight:700;margin-top:1px}
+.mail-keep{font-size:11.5px;color:var(--ink3);text-align:right;line-height:1.35;white-space:nowrap}
+.mail-keep b{display:block;color:var(--ink2);font-weight:600;font-size:13px}
+.mail-subject{padding:12px 16px 4px;font-size:16px;font-weight:700;line-height:1.35;letter-spacing:-.01em}
+.mail-body{padding:6px 16px 14px;font-size:13.5px;line-height:1.7;color:#2C3542;white-space:pre-wrap;word-break:break-word}
+.mail-body.placeholder,.mail-subject.placeholder{color:var(--ink3);font-style:italic;font-weight:400}
+.mail-src{font-size:11px;color:var(--ink3);padding:0 16px 8px;font-style:normal}
+.mail-items{padding:12px 16px 14px;background:#F1F2EE;border-top:1px solid var(--line2);display:grid;grid-template-columns:repeat(auto-fill,minmax(88px,1fr));gap:8px}
+.mail-items .none{grid-column:1/-1;color:var(--ink3);font-size:12.5px;text-align:center;padding:6px}
+.tile{background:#fff;border:1px solid var(--line);border-radius:8px;padding:8px 8px 7px;text-align:center;border-top-width:3px;min-height:64px;display:flex;flex-direction:column;justify-content:space-between}
+.tile .tn{font-size:11.5px;line-height:1.3;color:var(--ink);font-weight:600;overflow:hidden;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical}
+.tile .tc{font-family:var(--mono);font-size:12px;color:var(--ink2);margin-top:4px;font-variant-numeric:tabular-nums}
+.tile.unknown{border-color:var(--err-line);background:var(--err-soft)}
+.tile.unknown .tn{color:var(--err)}
+.mail-foot{padding:10px 16px 14px;background:#F1F2EE}
+.mail-foot .fake{width:100%;height:36px;border-radius:8px;border:0;background:var(--ink);color:#fff;font-weight:600;cursor:default;opacity:.9}
+.desk-note{color:#7F8BA6;font-size:11.5px;margin-top:12px;line-height:1.5}
+
+.code-tools{display:flex;gap:6px;padding:8px 10px;border-bottom:1px solid var(--line2);flex:none;align-items:center;flex-wrap:wrap}
+.code-tools .grow{flex:1}
+.code-tools input[type=text]{height:30px;width:220px;font-family:var(--mono);font-size:12.5px}
+pre.code{margin:0;padding:12px 14px;font-family:var(--mono);font-size:12.5px;line-height:1.55;overflow:auto;flex:1;min-height:0;white-space:pre;color:var(--ink);background:var(--surface);tab-size:2}
+pre.code .k{color:#1F4FC9}
+pre.code .s{color:#0E7C86}
+pre.code .n{color:#9A6410}
+pre.code.sum{white-space:pre-wrap;font-family:var(--sans);font-size:13px}
+body.wrapjson pre.code{white-space:pre-wrap;word-break:break-all}
+
+/* ---------- modal ---------- */
+.modal{position:fixed;inset:0;background:rgba(24,34,48,.45);z-index:50;display:flex;align-items:center;justify-content:center;padding:24px}
+.modal-box{background:var(--surface);border-radius:10px;width:min(1000px,100%);max-height:90vh;display:flex;flex-direction:column;overflow:hidden;box-shadow:0 20px 60px rgba(0,0,0,.3)}
+.modal-box .pane-head{padding:12px 16px}
+.modal-body{overflow:auto;flex:1;min-height:0}
+.ref-table{width:100%;border-collapse:collapse;font-size:13px}
+.ref-table th{position:sticky;top:0;background:var(--surface2);text-align:left;font-weight:500;color:var(--ink3);font-size:12px;padding:8px 12px;border-bottom:1px solid var(--line2)}
+.ref-table td{padding:7px 12px;border-bottom:1px solid var(--line2);vertical-align:top}
+.ref-table td.no{font-family:var(--mono);font-size:12px;color:var(--ink2);white-space:nowrap}
+.ref-table td.nw{white-space:nowrap}
+.ref-table tr:hover td{background:var(--surface2)}
+.ref-table .use{color:var(--accent);background:none;border:0;cursor:pointer;padding:0;font-size:12.5px}
+.ref-table .use:hover{text-decoration:underline}
+.ref-tools{display:flex;gap:8px;padding:10px 16px;border-bottom:1px solid var(--line2);align-items:center}
+.ref-tools input{width:260px;height:32px}
+
+/* ---------- toast ---------- */
+.toast{position:fixed;left:50%;bottom:28px;transform:translateX(-50%) translateY(20px);background:var(--ink);color:#fff;padding:10px 16px;border-radius:8px;font-size:13.5px;opacity:0;pointer-events:none;transition:opacity .18s,transform .18s;z-index:100;box-shadow:0 8px 24px rgba(0,0,0,.25)}
+.toast.show{opacity:1;transform:translateX(-50%) translateY(0)}
+.toast.err{background:var(--err)}
+
+@media (prefers-reduced-motion:reduce){*{transition:none!important}}
+
+/* ---------- 메일 템플릿 카드 ---------- */
+.tpl-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:8px}
+.tpl{display:flex;flex-direction:column;gap:4px;align-items:flex-start;text-align:left;padding:12px 12px 11px;border:1px solid var(--line);border-radius:8px;background:var(--surface);cursor:pointer;transition:border-color .12s,background .12s;min-height:78px}
+.tpl:hover{border-color:var(--accent-line);background:var(--accent-soft)}
+.tpl.on{border-color:var(--accent);background:var(--accent-soft);box-shadow:inset 0 0 0 1px var(--accent)}
+.tpl b{font-size:13.5px}
+.tpl span{font-size:11.5px;color:var(--ink2);line-height:1.35}
+.tpl.custom{border-style:dashed}
+#emHours .chip.on{background:var(--err);border-color:var(--err);color:#fff}
+#emHours .chip.on .no{color:#f7d4d4}
+/* ---------- 발송 타입 카드 ---------- */
+.type-cards{display:grid;grid-template-columns:repeat(2,1fr);gap:8px}
+.tcard{display:flex;flex-direction:column;gap:5px;align-items:flex-start;text-align:left;padding:12px 12px 10px;border:1px solid var(--line);border-radius:8px;background:var(--surface);cursor:pointer;min-height:118px;transition:background .12s,border-color .12s}
+.tcard:hover{border-color:#BEC5D2;background:var(--surface2)}
+.tcard b{font-size:14px}
+.tcard span{font-size:11.5px;color:var(--ink2);line-height:1.4}
+.tcard small{font-size:11px;color:var(--ink3);margin-top:auto}
+.tcard.on{color:#fff;border-color:transparent}
+.tcard.on span,.tcard.on small{color:rgba(255,255,255,.86)}
+.tcard[data-v="direct"].on{background:var(--t3)}
+.tcard[data-v="1"].on{background:var(--t1)}
+.tcard[data-v="2"].on{background:var(--t2)}
+.tcard[data-v="10000"].on{background:var(--t3)}
+.plain{font-size:12.5px;color:var(--ink2);line-height:1.55;background:var(--surface2);border-radius:var(--r);padding:8px 11px}
+.plain b{color:var(--ink)}
+details.adv{border:1px solid var(--line2);border-radius:var(--r);padding:0 12px}
+details.adv summary{cursor:pointer;padding:9px 0;font-size:13px;color:var(--ink2);list-style:none;display:flex;align-items:center;gap:6px}
+details.adv summary::-webkit-details-marker{display:none}
+details.adv summary::before{content:"▸";font-size:11px;color:var(--ink3)}
+details.adv[open] summary::before{content:"▾"}
+details.adv .row{margin-top:10px}
+details.adv .row:last-child{margin-bottom:12px}
+.empty .tpl-grid{margin-top:16px;text-align:left}
+
+/* ---------- 특정 유저 발송 ---------- */
+.badge.tg{background:var(--ink);color:#fff}
+.badge.dl{background:var(--surface3);color:var(--ink2)}
+.targets{padding:14px 16px 20px;overflow:auto;flex:1;min-height:0;display:flex;flex-direction:column;gap:14px}
+.targets h4{margin:0;font-size:13.5px;display:flex;align-items:center;justify-content:space-between}
+.targets h4 .muted{font-weight:400}
+.targets textarea{min-height:150px;font-family:var(--mono);font-size:12.5px;line-height:1.5}
+.tstat{display:flex;gap:6px;flex-wrap:wrap;align-items:center;font-size:12.5px;color:var(--ink2)}
+.tstat b{font-size:15px;color:var(--ink)}
+.tbox{border:1px solid var(--line2);border-radius:8px;padding:12px 14px;display:flex;flex-direction:column;gap:10px}
+.tbox.off{opacity:.55}
+.sheet{width:100%;border-collapse:collapse;font-size:12px}
+.sheet th{text-align:left;font-weight:500;color:var(--ink3);padding:5px 8px;background:var(--surface2);border-bottom:1px solid var(--line2);white-space:nowrap}
+.sheet td{padding:5px 8px;border-bottom:1px solid var(--line2);vertical-align:top}
+.sheet td.k{color:var(--ink2);white-space:nowrap;width:78px}
+.sheet td.v{color:var(--ink);white-space:pre-wrap;word-break:break-all;max-height:60px;overflow:hidden;display:-webkit-box;-webkit-line-clamp:3;-webkit-box-orient:vertical}
+.sheet td.c{width:48px;text-align:right;white-space:nowrap}
+.sheet .use{color:var(--accent);background:none;border:0;cursor:pointer;padding:0;font-size:12px}
+.sheet .use:hover{text-decoration:underline}
+.warnline{font-size:12px;color:var(--err);background:var(--err-soft);border-radius:4px;padding:6px 9px}
+.target-count{font-weight:700;font-size:14px}
+</style>
+</head>
+<body>
+
+<header class="topbar">
+  <div class="brand">
+    <h1>우편 발송 도구</h1>
+    <p>아가타 키우기 actionEventData.json 작성기 · v5</p>
+  </div>
+  <div class="top-actions">
+    <button id="btnRef" class="btn">데이터 참조</button>
+    <button id="btnImport" class="btn">기존 JSON 불러오기</button>
+    <input type="file" id="fileInput" accept=".json,application/json" hidden>
+    <button id="btnDownload" class="btn">actionEventData.json 내려받기</button>
+    <button id="btnRequestDownload" class="btn primary">request.json 내려받기</button>
+    <button id="btnPost" class="btn primary" disabled>HTTP POST 전송</button>
+  </div>
+</header>
+<div style="padding:8px 20px;background:var(--surface);border-bottom:1px solid var(--line);display:flex;gap:8px;align-items:center">
+  <span id="postEndpoint" role="status" style="overflow-wrap:anywhere">설정을 읽는 중...</span>
+</div>
+
+<div style="padding:8px 20px;background:var(--surface);border-bottom:1px solid var(--line);display:flex;flex-wrap:wrap;gap:8px;align-items:center">
+  <label for="postSenderId" class="muted" style="white-space:nowrap">SENDER ID</label>
+  <input id="postSenderId" type="text" required autocomplete="off" spellcheck="false" placeholder="SENDER ID (필수)" aria-describedby="postCredentialsHelp" style="max-width:260px">
+  <label for="postKey" class="muted" style="white-space:nowrap">KEY</label>
+  <input id="postKey" type="password" required autocomplete="off" spellcheck="false" placeholder="KEY (필수)" aria-describedby="postCredentialsHelp" style="max-width:340px">
+  <span id="postCredentialsHelp" class="muted">SENDER ID와 KEY를 모두 입력해야 전송할 수 있습니다.</span>
+</div>
+
+<main class="layout">
+
+  <!-- ===== 발송 목록 ===== -->
+  <aside class="pane">
+    <div class="pane-head">
+      <h2>발송 목록 <span id="condCount" class="muted"></span></h2>
+      <button id="btnAdd" class="btn small primary">+ 새 우편</button>
+    </div>
+    <div class="pane-body"><div id="condList" class="cond-list"></div></div>
+    <div class="pane-foot">
+      <span id="draftNote" class="muted">이 브라우저에 자동 저장됩니다</span>
+      <button id="btnClear" class="btn small ghost danger">전체 비우기</button>
+    </div>
+  </aside>
+
+  <!-- ===== 편집 폼 ===== -->
+  <section class="pane">
+    <div class="pane-head">
+      <h2 id="formTitle">우편 편집</h2>
+      <div class="inline">
+        <button id="btnDup" class="btn small">복제</button>
+        <button id="btnDel" class="btn small danger">삭제</button>
+      </div>
+    </div>
+    <div class="pane-body">
+      <div id="formEmpty" class="empty" hidden>
+        <strong>아직 만든 우편이 없습니다</strong>
+        아래에서 템플릿을 하나 누르면 바로 시작됩니다. 기존 actionEventData.json이 있으면 오른쪽 위 [기존 JSON 불러오기]로 여세요.
+        <div class="tpl-grid" id="emptyTpl">
+          <button type="button" class="tpl" data-tpl="regular"><b>정기 점검 메일</b><span>점검이 끝난 뒤 보상</span></button>
+          <button type="button" class="tpl" data-tpl="emergency"><b>긴급 점검 메일</b><span>점검 시간에 따라 보상이 커집니다</span></button>
+          <button type="button" class="tpl" data-tpl="kimpd"><b>김피디가 쏜다</b><span>매일 저녁 8시, 모두에게</span></button>
+          <button type="button" class="tpl custom" data-tpl="custom"><b>커스텀</b><span>빈 우편에서 직접 만들기</span></button>
+        </div>
+      </div>
+      <form id="form" class="form" autocomplete="off" onsubmit="return false">
+
+        <div class="section" id="secTpl">
+          <h3>메일 템플릿 <span class="hint">하나 누르면 아래 내용이 한 번에 채워집니다. 채워진 뒤에 고쳐도 됩니다.</span></h3>
+          <div class="tpl-grid" id="tplGrid">
+            <button type="button" class="tpl" data-tpl="regular"><b>정기 점검 메일</b><span>점검이 끝난 뒤 보상. 접속하면 한 번만 받습니다.</span></button>
+            <button type="button" class="tpl" data-tpl="emergency"><b>긴급 점검 메일</b><span>점검 시간(1·2·4·6·8시간)에 따라 보상이 커집니다.</span></button>
+            <button type="button" class="tpl" data-tpl="kimpd"><b>김피디가 쏜다</b><span>매일 저녁 8시, 접속 안 해도 모두에게.</span></button>
+            <button type="button" class="tpl custom" data-tpl="custom"><b>커스텀</b><span>빈 우편에서 원하는 대로 직접 만들기.</span></button>
+          </div>
+          <div class="row" id="rowEmHours" hidden style="margin-top:12px">
+            <label>점검 시간</label>
+            <div class="field">
+              <div class="chips" id="emHours">
+                <button type="button" class="chip" data-h="1">1시간</button>
+                <button type="button" class="chip" data-h="2">2시간</button>
+                <button type="button" class="chip" data-h="4">4시간</button>
+                <button type="button" class="chip" data-h="6">6시간</button>
+                <button type="button" class="chip" data-h="8">8시간</button>
+              </div>
+              <p class="help" id="emHoursHelp"></p>
+            </div>
+          </div>
+          <div class="row" id="rowRewardMode" hidden>
+            <label>보상 주는 방식</label>
+            <div class="field">
+              <div class="seg" id="segReward">
+                <button type="button" data-v="items">아이템을 낱개로</button>
+                <button type="button" data-v="box">보상 상자 1개로</button>
+              </div>
+              <p class="help">낱개는 우편함에 아이템이 하나씩 보이고, 상자는 "점검 보상" 상자 1개만 보입니다. 내용물은 같습니다.</p>
+            </div>
+          </div>
+        </div>
+
+        <div class="section">
+          <h3>언제, 누구에게 보낼까요? <span class="hint">발송 타입</span></h3>
+          <div class="row">
+            <label>받는 사람</label>
+            <div class="field">
+              <div class="seg" id="segAudience">
+                <button type="button" data-v="all">모든 유저</button>
+                <button type="button" data-v="target">특정 유저만</button>
+              </div>
+              <p class="help" id="audienceHelp"></p>
+            </div>
+          </div>
+          <div class="row" id="rowDelivery" hidden>
+            <label>전달 방식</label>
+            <div class="field">
+              <div class="seg" id="segDelivery">
+                <button type="button" data-v="login">기간 안에 접속하면 받음</button>
+                <button type="button" data-v="direct">바로 우편함에 넣음</button>
+              </div>
+              <p class="help" id="deliveryHelp"></p>
+            </div>
+          </div>
+          <div class="row" id="rowTargets" hidden>
+            <label>대상 유저</label>
+            <div class="field">
+              <div class="inline">
+                <span class="target-count" id="targetCount">0명</span>
+                <button type="button" class="btn small primary" id="btnGoTargets">오른쪽 [대상·시트] 탭에서 UID 입력</button>
+              </div>
+              <p class="help">UID 목록은 오른쪽 탭에 붙여넣습니다. 이 우편은 전체 발송 파일(actionEventData.json)에 들어가지 않고 별도 파일로 나갑니다.</p>
+            </div>
+          </div>
+          <div class="row top" id="rowType">
+            <label>보내는 방식</label>
+            <div class="field">
+              <div class="type-cards" id="segType">
+                <button type="button" class="tcard" data-v="direct"><b>즉시 발송</b><span>POST 요청 시 모든 유저의 우편함에 바로 지급합니다. 날짜와 시각을 지정하지 않습니다.</span><small>request JSON / POST 전송</small></button>
+                <button type="button" class="tcard" data-v="1"><b>접속하면 매일</b><span>정한 날짜(또는 기간)에 게임에 들어온 사람에게, 들어온 날마다 한 통씩 줍니다.</span><small>예: 이벤트 기간 일일 접속 선물 · type 1</small></button>
+                <button type="button" class="tcard" data-v="2"><b>접속하면 한 번만</b><span>정한 기간 안에 게임에 들어온 사람에게 딱 한 통만 줍니다. 기간 중 언제 들어와도 받고, 두 번은 안 줍니다.</span><small>예: 점검 보상, 사과 보상, 안내 · type 2</small></button>
+                <button type="button" class="tcard" data-v="10000"><b>정한 시각에 모두에게</b><span>기간 동안 매일 정한 시각에 보냅니다. 게임에 안 들어와도 모든 유저가 받습니다.</span><small>예: 저녁 8시 선물, 점심 보급 · type 10000</small></button>
+              </div>
+              <p class="plain" id="typeHelp"></p>
+            </div>
+          </div>
+          <div class="row" id="rowDateMode">
+            <label>발송 일자</label>
+            <div class="field">
+              <div class="seg" id="segDate">
+                <button type="button" data-v="day">이 날 하루만</button>
+                <button type="button" data-v="period">이 기간 동안 매일</button>
+              </div>
+            </div>
+          </div>
+          <div class="row" id="rowDay">
+            <label for="fLogin">보내는 날</label>
+            <div class="field">
+              <div class="inline">
+                <input type="date" id="fLogin" class="w-s" style="width:170px">
+                <div class="datepresets">
+                  <button type="button" class="btn small ghost" data-preset="0">오늘</button>
+                  <button type="button" class="btn small ghost" data-preset="1">내일</button>
+                </div>
+              </div>
+              <p class="help">이 날 게임에 들어온 사람만 받습니다. 시각은 정할 수 없고 날짜만 정합니다. (파일에는 login_date로 저장)</p>
+            </div>
+          </div>
+          <div class="row" id="rowPeriod">
+            <label for="fBegin">시작일 ~ 종료일</label>
+            <div class="field">
+              <div class="inline">
+                <input type="date" id="fBegin" style="width:170px">
+                <span class="unit">~</span>
+                <input type="date" id="fEnd" style="width:170px">
+                <span class="unit" id="periodDays"></span>
+              </div>
+              <p class="help" id="periodHelp"></p>
+            </div>
+          </div>
+          <div class="row" id="rowKey">
+            <label for="fKey">우편 이름표</label>
+            <div class="field">
+              <div class="inline">
+                <input type="text" id="fKey" placeholder="예: 0915_긴급점검보상_2h" style="flex:1">
+                <button type="button" class="btn small" id="btnAutoKey">날짜 붙여 자동 만들기</button>
+              </div>
+              <p class="help">서버는 이 이름표로 "이 사람이 이미 받았는지"를 확인합니다. <b>예전에 쓴 이름표를 다시 쓰면, 그때 받은 사람은 이번 우편을 못 받습니다.</b> 그래서 항상 날짜를 붙여 새 이름으로 만드세요. (파일에는 onetime_key로 저장)</p>
+            </div>
+          </div>
+          <div class="row" id="rowSendTime">
+            <label for="fSendTime">보내는 시각</label>
+            <div class="field">
+              <div class="inline">
+                <input type="text" id="fSendTime" placeholder="예: 20:00" style="width:130px">
+                <div class="datepresets" id="sendTimePresets">
+                  <button type="button" class="btn small ghost" data-time="10:00">아침 10시</button>
+                  <button type="button" class="btn small ghost" data-time="12:00">점심 12시</button>
+                  <button type="button" class="btn small ghost" data-time="13:00">13시</button>
+                  <button type="button" class="btn small ghost" data-time="18:00">저녁 6시</button>
+                  <button type="button" class="btn small ghost" data-time="20:00">저녁 8시</button>
+                </div>
+                <span class="unit" id="sendTimeKst"></span>
+              </div>
+              <p class="help"><b>우리나라 시간</b>으로 적으세요. 예) 저녁 8시 → 20:00. 파일에는 자동으로 세계 표준시(UTC, 9시간 앞)로 바뀌어 저장되며, 오른쪽에 그 값이 보입니다. 기간 동안 매일 이 시각에 모든 유저에게 갑니다.</p>
+            </div>
+          </div>
+        </div>
+
+        <div class="section">
+          <h3>보관 기간</h3>
+          <div class="row">
+            <label for="fExpire">우편함에 남는 기간</label>
+            <div class="field">
+              <div class="inline"><input type="number" id="fExpire" min="1" step="1" style="width:90px"><span class="unit">일 동안 (파일에는 expire로 저장)</span></div>
+              <p class="help">이 기간이 지나면 우편이 사라집니다. 유저가 받을 시간이 충분한지 보고 정하세요. 점검 보상은 보통 14일, 매일 주는 선물은 2일입니다.</p>
+            </div>
+          </div>
+          <details class="adv">
+            <summary>서식 번호 (고급) — 템플릿을 쓰면 자동으로 채워지니 보통은 건드리지 않아도 됩니다</summary>
+          <div class="row">
+            <label for="fTemplate">Mail.xlsx 서식</label>
+            <div class="field">
+              <select id="fTemplate"></select>
+              <p class="help">게임 데이터 테이블(Mail.xlsx)의 우편 서식입니다. 고르면 mail_no, 스트링 no, 보관 기간, 제목/본문/발송인이 채워집니다.</p>
+            </div>
+          </div>
+          <div class="row">
+            <label>번호</label>
+            <div class="field">
+              <div class="inline">
+                <span class="unit">mail_no</span><input type="number" id="fMailNo" min="0" step="1">
+                <span class="unit">title</span><input type="number" id="fTitle" min="0" step="1">
+                <span class="unit">context</span><input type="number" id="fContext" min="0" step="1">
+              </div>
+              <p class="help ref" id="titleRef"></p>
+              <p class="help ref" id="contextRef"></p>
+            </div>
+          </div>
+          </details>
+        </div>
+
+        <div class="section">
+          <h3>우편 내용</h3>
+          <div class="row top">
+            <label>제목</label>
+            <div class="field">
+              <label class="check"><input type="checkbox" id="fUseSubject"> 제목을 직접 씁니다 (끄면 서식 번호의 제목을 씀)</label>
+              <div class="lang-pair" id="subjectPair">
+                <div><span>한국어</span><input type="text" id="fSubKo" placeholder="정기 점검 보상"></div>
+                <div><span>English</span><input type="text" id="fSubEn" placeholder="Scheduled Maintenance Reward"></div>
+              </div>
+              <p class="help" id="subjectHelp"></p>
+            </div>
+          </div>
+          <div class="row top">
+            <label>본문</label>
+            <div class="field">
+              <label class="check"><input type="checkbox" id="fUseDesc"> 본문을 직접 씁니다 (끄면 서식 번호의 본문을 씀)</label>
+              <div class="lang-pair stack" id="descPair">
+                <div><span>한국어</span><textarea id="fDescKo" placeholder="싱커님, 안녕하세요.&#10;&#10;정기 점검이 완료되었습니다."></textarea></div>
+                <div><span>English</span><textarea id="fDescEn" placeholder="Hello, Syncer.&#10;&#10;The scheduled maintenance has been completed."></textarea></div>
+              </div>
+              <p class="help">줄바꿈, 쉼표, 따옴표는 평소처럼 쓰면 됩니다. 파일로 내보낼 때 규칙에 맞게(/n /1 /2 /3) 자동으로 바뀝니다. 영문을 비우면 한국어가 그대로 들어갑니다.</p>
+            </div>
+          </div>
+          <div class="row top">
+            <label>발송인</label>
+            <div class="field">
+              <div class="chips" id="fromPresets"></div>
+              <div class="lang-pair">
+                <div><span>한국어</span><input type="text" id="fFromKo"></div>
+                <div><span>English</span><input type="text" id="fFromEn"></div>
+              </div>
+            </div>
+          </div>
+          <div class="row">
+            <label>치환 규칙</label>
+            <div class="field">
+              <label class="check"><input type="checkbox" id="fEscape" checked> 쉼표 → /1, 큰따옴표 → /2, 작은따옴표 → /3 으로 치환 (줄바꿈 → /n 은 항상 적용)</label>
+            </div>
+          </div>
+        </div>
+
+        <div class="section">
+          <h3>보상 아이템 <span class="hint">Item.xlsx 기준</span></h3>
+          <div class="row top">
+            <label>바로 추가</label>
+            <div class="chips" id="quickItems"></div>
+          </div>
+          <div class="row top">
+            <label for="itemSearch">검색</label>
+            <div class="field">
+              <div class="chips" id="itemFilter" style="margin-bottom:2px">
+                <button type="button" class="chip on" data-t="all">전체</button>
+                <button type="button" class="chip" data-t="1">재화</button>
+                <button type="button" class="chip" data-t="2">입장권</button>
+                <button type="button" class="chip" data-t="3">상자/패키지</button>
+                <button type="button" class="chip" data-t="4">모듈</button>
+              </div>
+              <div class="search-wrap">
+                <input type="text" id="itemSearch" placeholder="아이템 번호 또는 이름으로 검색 후 Enter">
+                <div id="itemResults" class="results" hidden></div>
+              </div>
+            </div>
+          </div>
+          <div class="items">
+            <table>
+              <thead><tr><th style="width:70px">no</th><th>아이템</th><th style="width:140px">수량</th><th style="width:44px"></th></tr></thead>
+              <tbody id="itemRows"></tbody>
+            </table>
+          </div>
+        </div>
+
+      </form>
+      <div id="issues" class="issues-box" hidden></div>
+    </div>
+  </section>
+
+  <!-- ===== 미리보기 / JSON ===== -->
+  <aside class="pane">
+    <div class="tabs" id="tabs">
+      <button class="on" data-tab="preview">미리보기</button>
+      <button data-tab="json">JSON</button>
+      <button data-tab="file">전체 파일</button>
+      <button data-tab="summary">요청 요약</button>
+      <button data-tab="targets">대상·시트</button>
+    </div>
+
+    <div class="tabpanel on" id="tab-preview">
+      <div class="desk">
+        <div class="desk-meta">
+          <span id="previewMeta"></span>
+          <div class="seg" id="segLang"><button type="button" data-v="ko" class="on">한국어</button><button type="button" data-v="en">English</button></div>
+        </div>
+        <div id="mailPreview"></div>
+        <p class="desk-note">인게임 우편함 느낌으로 재구성한 미리보기입니다. 실제 클라이언트 렌더링과는 다를 수 있습니다.</p>
+      </div>
+    </div>
+
+    <div class="tabpanel" id="tab-json">
+      <div class="code-tools">
+        <span class="muted grow">현재 편집 중인 우편 1건의 condition</span>
+        <label class="check"><input type="checkbox" class="wrapToggle"> 줄바꿈</label>
+        <button class="btn small" data-copy="jsonOut">복사</button>
+      </div>
+      <pre class="code" id="jsonOut"></pre>
+    </div>
+
+    <div class="tabpanel" id="tab-file">
+      <div class="code-tools">
+        <div class="seg" id="segFile"><button type="button" data-v="all" class="on">모든 유저 파일</button><button type="button" data-v="target">특정 유저 파일</button></div>
+        <input type="text" id="fileName" value="actionEventData.json" spellcheck="false">
+        <span class="grow"></span>
+        <label class="check"><input type="checkbox" class="wrapToggle"> 줄바꿈</label>
+        <button class="btn small" data-copy="fileOut">복사</button>
+        <button class="btn small primary" id="btnDownload2">내려받기</button>
+      </div>
+      <pre class="code" id="fileOut"></pre>
+    </div>
+
+    <div class="tabpanel" id="tab-summary">
+      <div class="code-tools">
+        <span class="muted grow">메신저로 발송 요청할 때 붙여 넣는 사람용 요약</span>
+        <button class="btn small" data-copy="sumOut">복사</button>
+      </div>
+      <pre class="code sum" id="sumOut"></pre>
+    </div>
+
+    <div class="tabpanel" id="tab-targets">
+      <div class="targets">
+        <div class="tbox" id="targetsBox">
+          <h4>대상 유저 UID <span class="muted" id="targetsBoxNote"></span></h4>
+          <textarea id="fTargets" placeholder="UID를 붙여넣으세요. 줄바꿈, 쉼표, 공백, 탭 아무거나 구분자로 씁니다.&#10;예)&#10;10&#10;14&#10;312"></textarea>
+          <div class="tstat" id="targetStat"></div>
+          <div id="targetWarn" class="warnline" hidden></div>
+          <div class="inline">
+            <button type="button" class="btn small" id="btnTargetsClean">정리 (중복 제거·한 줄에 하나)</button>
+            <button type="button" class="btn small" id="btnCopyUids">UID 복사 (줄바꿈)</button>
+            <button type="button" class="btn small ghost danger" id="btnTargetsClear">비우기</button>
+          </div>
+        </div>
+        <div class="tbox">
+          <h4>구글 시트에 붙여넣기 <span class="muted">발송 이력 시트 열 순서</span></h4>
+          <div class="inline">
+            <span class="unit">구분</span><input type="text" id="fCategory" placeholder="예: 긴급 점검 보상 (6시간)" style="flex:1">
+          </div>
+          <div class="inline">
+            <label class="check"><input type="checkbox" id="fSheetSeq" checked> 맨 앞에 빈 "순번" 칸 넣기</label>
+            <span class="grow"></span>
+            <button type="button" class="btn small primary" id="btnCopyRow">시트 행 복사</button>
+          </div>
+          <p class="help">시트에서 붙여넣을 셀을 하나 고르고 Ctrl+V. 본문·보상·UID처럼 여러 줄인 칸은 한 셀 안에 줄바꿈으로 들어갑니다. 한 줄로 깨지면 아래에서 칸별로 복사하세요.</p>
+          <table class="sheet" id="sheetTable"></table>
+        </div>
+      </div>
+    </div>
+  </aside>
+</main>
+
+<!-- ===== 데이터 참조 모달 ===== -->
+<div id="refModal" class="modal" hidden>
+  <div class="modal-box">
+    <div class="pane-head">
+      <div class="tabs" style="border:0;padding:0" id="refTabs">
+        <button class="on" data-tab="mails">Mail 템플릿</button>
+        <button data-tab="items">아이템</button>
+        <button data-tab="rules">작성 규칙</button>
+      </div>
+      <button class="btn small ghost" id="btnRefClose">닫기</button>
+    </div>
+    <div class="ref-tools" id="refItemTools" hidden><input type="text" id="refItemSearch" placeholder="번호 또는 이름 검색"><span class="muted" id="refItemCount"></span></div>
+    <div class="modal-body" id="refBody"></div>
+  </div>
+</div>
+
+<div id="toast" class="toast"></div>
+
+<script>const DATA = {"items": [{"no": 1, "type": 1, "sub": 0, "tv": 0, "grade": 1, "max": 999999999, "kr": "크리스탈", "en": "Crystal", "icon": "icon_currency_cash", "note": "크리스탈"}, {"no": 2, "type": 1, "sub": 0, "tv": 0, "grade": 1, "max": 999999999, "kr": "샤드", "en": "Shard", "icon": "icon_tekhelet_free", "note": "샤드"}, {"no": 3, "type": 1, "sub": 0, "tv": 0, "grade": 1, "max": 999999999, "kr": "모듈 칩", "en": "Module Chip", "icon": "icon_material_module", "note": "모듈 부품"}, {"no": 4, "type": 1, "sub": 0, "tv": 0, "grade": 3, "max": 999999999, "kr": "아가타 소환권", "en": "Agatha Summon Ticket", "icon": "icon_summon_1", "note": "아가타 소환권"}, {"no": 5, "type": 1, "sub": 0, "tv": 0, "grade": 3, "max": 999999999, "kr": "스킬 소환권", "en": "Skill Summon Ticket", "icon": "icon_summon_2", "note": "스킬 소환권"}, {"no": 6, "type": 1, "sub": 0, "tv": 0, "grade": 3, "max": 999999999, "kr": "서포터 봇 소환권", "en": "Support Bot Summon Ticket", "icon": "icon_summon_3", "note": "서포터 봇 소환권"}, {"no": 7, "type": 1, "sub": 0, "tv": 0, "grade": 2, "max": 999999999, "kr": "길드 코인", "en": "Guild Coin", "icon": "icon_currency_guild", "note": "길드 코인"}, {"no": 8, "type": 1, "sub": 0, "tv": 0, "grade": 2, "max": 999999999, "kr": "길드 포인트", "en": "Guild Point", "icon": "icon_growth_guild", "note": "길드 포인트"}, {"no": 20, "type": 2, "sub": 0, "tv": 0, "grade": 3, "max": 999, "kr": "결투 참가권", "en": "Arena Entry Ticket", "icon": "icon_ticket_pvp", "note": "결투 참가권"}, {"no": 21, "type": 2, "sub": 0, "tv": 0, "grade": 3, "max": 999, "kr": "길드 레이드 참가권", "en": "Guild Raid Entry Ticket", "icon": "icon_ticket_guild_raid", "note": "길드 레이드 참가권"}, {"no": 31, "type": 2, "sub": 0, "tv": 0, "grade": 3, "max": 999, "kr": "부품 채굴 허가증", "en": "Parts Mining Permit", "icon": "icon_ticket_dungeon_1", "note": "부품 채굴 허가증"}, {"no": 32, "type": 2, "sub": 0, "tv": 0, "grade": 3, "max": 999, "kr": "소환 데이터 허가증", "en": "Summon Data Permit", "icon": "icon_ticket_dungeon_2", "note": "소환 데이터 허가증"}, {"no": 33, "type": 2, "sub": 0, "tv": 0, "grade": 3, "max": 999, "kr": "통제 작전 허가증", "en": "Control Operation Permit", "icon": "icon_ticket_dungeon_3", "note": "통제 작전 허가증"}, {"no": 34, "type": 2, "sub": 0, "tv": 0, "grade": 3, "max": 999, "kr": "개발 작전 허가증", "en": "Development Operation Permit", "icon": "icon_ticket_dungeon_4", "note": "개발 작전 허가증"}, {"no": 35, "type": 2, "sub": 0, "tv": 0, "grade": 3, "max": 999, "kr": "연구 작전 허가증", "en": "Research Operation Permit", "icon": "icon_ticket_dungeon_5", "note": "연구 작전 허가증"}, {"no": 98, "type": 1, "sub": 0, "tv": 0, "grade": 1, "max": 999999999, "kr": "마일리지", "en": "Mileage", "icon": "icon_currency_milegage", "note": "마일리지"}, {"no": 99, "type": 99, "sub": 0, "tv": 0, "grade": 1, "max": 0, "kr": "현금 (중복 방지용 데이터)", "en": "", "icon": "", "note": "현금 (중복 방지용 데이터)"}, {"no": 101, "type": 1, "sub": 0, "tv": 0, "grade": 2, "max": 999999999, "kr": "통제 회로", "en": "Control Circuit", "icon": "icon_growth_zone_1", "note": "통제 회로"}, {"no": 102, "type": 1, "sub": 0, "tv": 0, "grade": 2, "max": 999999999, "kr": "개발 회로", "en": "Development Circuit", "icon": "icon_growth_zone_2", "note": "개발 회로"}, {"no": 103, "type": 1, "sub": 0, "tv": 0, "grade": 2, "max": 999999999, "kr": "연구 회로", "en": "Research Circuit", "icon": "icon_growth_zone_3", "note": "연구 회로"}, {"no": 111, "type": 1, "sub": 0, "tv": 0, "grade": 2, "max": 999999999, "kr": "본부 건설 자재", "en": "HQ Construction Materials", "icon": "icon_growth_building_1", "note": "본부 건설 자재"}, {"no": 121, "type": 1, "sub": 0, "tv": 0, "grade": 2, "max": 999999999, "kr": "센터 건설 자재", "en": "Center Construction Materials", "icon": "icon_growth_building_2", "note": "센터 건설 자재"}, {"no": 131, "type": 1, "sub": 0, "tv": 0, "grade": 1, "max": 999999999, "kr": "디펜더 데이터", "en": "Defender Data", "icon": "icon_growth_research_1", "note": "디펜더 데이터"}, {"no": 132, "type": 1, "sub": 0, "tv": 0, "grade": 1, "max": 999999999, "kr": "스트라이커 데이터", "en": "Striker Data", "icon": "icon_growth_research_2", "note": "스트라이커 데이터"}, {"no": 133, "type": 1, "sub": 0, "tv": 0, "grade": 1, "max": 999999999, "kr": "레인저 데이터", "en": "Ranger Data", "icon": "icon_growth_research_3", "note": "레인저 데이터"}, {"no": 134, "type": 1, "sub": 0, "tv": 0, "grade": 1, "max": 999999999, "kr": "에이전트 데이터", "en": "Agent Data", "icon": "icon_growth_research_4", "note": "에이전트 데이터"}, {"no": 141, "type": 1, "sub": 0, "tv": 0, "grade": 1, "max": 999999999, "kr": "감응석", "en": "Resonance Stone", "icon": "icon_growth_produce_1", "note": "원광석"}, {"no": 142, "type": 1, "sub": 0, "tv": 0, "grade": 1, "max": 999999999, "kr": "부품", "en": "Parts", "icon": "icon_growth_produce_2", "note": "기계 부품"}, {"no": 143, "type": 1, "sub": 0, "tv": 0, "grade": 1, "max": 999999999, "kr": "물자", "en": "Supplies", "icon": "icon_growth_produce_3", "note": "보급 물자"}, {"no": 144, "type": 1, "sub": 0, "tv": 0, "grade": 1, "max": 999999999, "kr": "에너지 셀", "en": "Energy Cell", "icon": "icon_growth_produce_4", "note": "에너지 셀"}, {"no": 1000, "type": 1, "sub": 0, "tv": 0, "grade": 1, "max": 999999999, "kr": "모듈 제작 경험치", "en": "Module Crafting EXP", "icon": "icon_exp_module", "note": "모듈 제작 경험치"}, {"no": 1001, "type": 1, "sub": 0, "tv": 0, "grade": 1, "max": 999999999, "kr": "싱커 경험치", "en": "Syncher EXP", "icon": "icon_exp_user", "note": "싱커 경험치"}, {"no": 1101, "type": 4, "sub": 1, "tv": 1, "grade": 1, "max": 9, "kr": "디펜더 드라이브", "en": "Defender Drive", "icon": "icon_defender_drive_1", "note": "디펜더 드라이브"}, {"no": 1102, "type": 4, "sub": 1, "tv": 1, "grade": 2, "max": 9, "kr": "디펜더 드라이브", "en": "Defender Drive", "icon": "icon_defender_drive_1", "note": "디펜더 드라이브"}, {"no": 1103, "type": 4, "sub": 1, "tv": 1, "grade": 3, "max": 9, "kr": "디펜더 드라이브", "en": "Defender Drive", "icon": "icon_defender_drive_1", "note": "디펜더 드라이브"}, {"no": 1104, "type": 4, "sub": 1, "tv": 1, "grade": 4, "max": 9, "kr": "디펜더 드라이브", "en": "Defender Drive", "icon": "icon_defender_drive_2", "note": "디펜더 드라이브"}, {"no": 1105, "type": 4, "sub": 1, "tv": 1, "grade": 5, "max": 9, "kr": "디펜더 드라이브", "en": "Defender Drive", "icon": "icon_defender_drive_2", "note": "디펜더 드라이브"}, {"no": 1106, "type": 4, "sub": 1, "tv": 1, "grade": 6, "max": 9, "kr": "디펜더 드라이브", "en": "Defender Drive", "icon": "icon_defender_drive_3", "note": "디펜더 드라이브"}, {"no": 1107, "type": 4, "sub": 1, "tv": 1, "grade": 7, "max": 9, "kr": "디펜더 드라이브", "en": "Defender Drive", "icon": "icon_defender_drive_3", "note": "디펜더 드라이브"}, {"no": 1108, "type": 4, "sub": 1, "tv": 1, "grade": 8, "max": 9, "kr": "디펜더 드라이브", "en": "Defender Drive", "icon": "icon_defender_drive_4", "note": "디펜더 드라이브"}, {"no": 1109, "type": 4, "sub": 1, "tv": 1, "grade": 9, "max": 9, "kr": "디펜더 드라이브", "en": "Defender Drive", "icon": "icon_defender_drive_4", "note": "디펜더 드라이브"}, {"no": 1110, "type": 4, "sub": 1, "tv": 1, "grade": 10, "max": 9, "kr": "디펜더 드라이브", "en": "Defender Drive", "icon": "icon_defender_drive_4", "note": "디펜더 드라이브"}, {"no": 1111, "type": 4, "sub": 1, "tv": 1, "grade": 11, "max": 9, "kr": "디펜더 드라이브", "en": "Defender Drive", "icon": "icon_defender_drive_5", "note": "디펜더 드라이브"}, {"no": 1112, "type": 4, "sub": 1, "tv": 1, "grade": 12, "max": 9, "kr": "디펜더 드라이브", "en": "Defender Drive", "icon": "icon_defender_drive_5", "note": "디펜더 드라이브"}, {"no": 1113, "type": 4, "sub": 1, "tv": 1, "grade": 13, "max": 9, "kr": "디펜더 드라이브", "en": "Defender Drive", "icon": "icon_defender_drive_6", "note": "디펜더 드라이브"}, {"no": 1114, "type": 4, "sub": 1, "tv": 1, "grade": 14, "max": 9, "kr": "디펜더 드라이브", "en": "Defender Drive", "icon": "icon_defender_drive_6", "note": "디펜더 드라이브"}, {"no": 1201, "type": 4, "sub": 1, "tv": 2, "grade": 1, "max": 9, "kr": "디펜더 아머", "en": "Defender Armor", "icon": "icon_defender_armor_1", "note": "디펜더 아머"}, {"no": 1202, "type": 4, "sub": 1, "tv": 2, "grade": 2, "max": 9, "kr": "디펜더 아머", "en": "Defender Armor", "icon": "icon_defender_armor_1", "note": "디펜더 아머"}, {"no": 1203, "type": 4, "sub": 1, "tv": 2, "grade": 3, "max": 9, "kr": "디펜더 아머", "en": "Defender Armor", "icon": "icon_defender_armor_1", "note": "디펜더 아머"}, {"no": 1204, "type": 4, "sub": 1, "tv": 2, "grade": 4, "max": 9, "kr": "디펜더 아머", "en": "Defender Armor", "icon": "icon_defender_armor_2", "note": "디펜더 아머"}, {"no": 1205, "type": 4, "sub": 1, "tv": 2, "grade": 5, "max": 9, "kr": "디펜더 아머", "en": "Defender Armor", "icon": "icon_defender_armor_2", "note": "디펜더 아머"}, {"no": 1206, "type": 4, "sub": 1, "tv": 2, "grade": 6, "max": 9, "kr": "디펜더 아머", "en": "Defender Armor", "icon": "icon_defender_armor_3", "note": "디펜더 아머"}, {"no": 1207, "type": 4, "sub": 1, "tv": 2, "grade": 7, "max": 9, "kr": "디펜더 아머", "en": "Defender Armor", "icon": "icon_defender_armor_3", "note": "디펜더 아머"}, {"no": 1208, "type": 4, "sub": 1, "tv": 2, "grade": 8, "max": 9, "kr": "디펜더 아머", "en": "Defender Armor", "icon": "icon_defender_armor_4", "note": "디펜더 아머"}, {"no": 1209, "type": 4, "sub": 1, "tv": 2, "grade": 9, "max": 9, "kr": "디펜더 아머", "en": "Defender Armor", "icon": "icon_defender_armor_4", "note": "디펜더 아머"}, {"no": 1210, "type": 4, "sub": 1, "tv": 2, "grade": 10, "max": 9, "kr": "디펜더 아머", "en": "Defender Armor", "icon": "icon_defender_armor_4", "note": "디펜더 아머"}, {"no": 1211, "type": 4, "sub": 1, "tv": 2, "grade": 11, "max": 9, "kr": "디펜더 아머", "en": "Defender Armor", "icon": "icon_defender_armor_5", "note": "디펜더 아머"}, {"no": 1212, "type": 4, "sub": 1, "tv": 2, "grade": 12, "max": 9, "kr": "디펜더 아머", "en": "Defender Armor", "icon": "icon_defender_armor_5", "note": "디펜더 아머"}, {"no": 1213, "type": 4, "sub": 1, "tv": 2, "grade": 13, "max": 9, "kr": "디펜더 아머", "en": "Defender Armor", "icon": "icon_defender_armor_6", "note": "디펜더 아머"}, {"no": 1214, "type": 4, "sub": 1, "tv": 2, "grade": 14, "max": 9, "kr": "디펜더 아머", "en": "Defender Armor", "icon": "icon_defender_armor_6", "note": "디펜더 아머"}, {"no": 1301, "type": 4, "sub": 1, "tv": 3, "grade": 1, "max": 9, "kr": "디펜더 코어", "en": "Defender Core", "icon": "icon_defender_core_1", "note": "디펜더 코어"}, {"no": 1302, "type": 4, "sub": 1, "tv": 3, "grade": 2, "max": 9, "kr": "디펜더 코어", "en": "Defender Core", "icon": "icon_defender_core_1", "note": "디펜더 코어"}, {"no": 1303, "type": 4, "sub": 1, "tv": 3, "grade": 3, "max": 9, "kr": "디펜더 코어", "en": "Defender Core", "icon": "icon_defender_core_1", "note": "디펜더 코어"}, {"no": 1304, "type": 4, "sub": 1, "tv": 3, "grade": 4, "max": 9, "kr": "디펜더 코어", "en": "Defender Core", "icon": "icon_defender_core_2", "note": "디펜더 코어"}, {"no": 1305, "type": 4, "sub": 1, "tv": 3, "grade": 5, "max": 9, "kr": "디펜더 코어", "en": "Defender Core", "icon": "icon_defender_core_2", "note": "디펜더 코어"}, {"no": 1306, "type": 4, "sub": 1, "tv": 3, "grade": 6, "max": 9, "kr": "디펜더 코어", "en": "Defender Core", "icon": "icon_defender_core_3", "note": "디펜더 코어"}, {"no": 1307, "type": 4, "sub": 1, "tv": 3, "grade": 7, "max": 9, "kr": "디펜더 코어", "en": "Defender Core", "icon": "icon_defender_core_3", "note": "디펜더 코어"}, {"no": 1308, "type": 4, "sub": 1, "tv": 3, "grade": 8, "max": 9, "kr": "디펜더 코어", "en": "Defender Core", "icon": "icon_defender_core_4", "note": "디펜더 코어"}, {"no": 1309, "type": 4, "sub": 1, "tv": 3, "grade": 9, "max": 9, "kr": "디펜더 코어", "en": "Defender Core", "icon": "icon_defender_core_4", "note": "디펜더 코어"}, {"no": 1310, "type": 4, "sub": 1, "tv": 3, "grade": 10, "max": 9, "kr": "디펜더 코어", "en": "Defender Core", "icon": "icon_defender_core_4", "note": "디펜더 코어"}, {"no": 1311, "type": 4, "sub": 1, "tv": 3, "grade": 11, "max": 9, "kr": "디펜더 코어", "en": "Defender Core", "icon": "icon_defender_core_5", "note": "디펜더 코어"}, {"no": 1312, "type": 4, "sub": 1, "tv": 3, "grade": 12, "max": 9, "kr": "디펜더 코어", "en": "Defender Core", "icon": "icon_defender_core_5", "note": "디펜더 코어"}, {"no": 1313, "type": 4, "sub": 1, "tv": 3, "grade": 13, "max": 9, "kr": "디펜더 코어", "en": "Defender Core", "icon": "icon_defender_core_6", "note": "디펜더 코어"}, {"no": 1314, "type": 4, "sub": 1, "tv": 3, "grade": 14, "max": 9, "kr": "디펜더 코어", "en": "Defender Core", "icon": "icon_defender_core_6", "note": "디펜더 코어"}, {"no": 2101, "type": 4, "sub": 2, "tv": 1, "grade": 1, "max": 9, "kr": "스트라이커 드라이브", "en": "Striker Drive", "icon": "icon_breaker_drive_1", "note": "스트라이커 드라이브"}, {"no": 2102, "type": 4, "sub": 2, "tv": 1, "grade": 2, "max": 9, "kr": "스트라이커 드라이브", "en": "Striker Drive", "icon": "icon_breaker_drive_1", "note": "스트라이커 드라이브"}, {"no": 2103, "type": 4, "sub": 2, "tv": 1, "grade": 3, "max": 9, "kr": "스트라이커 드라이브", "en": "Striker Drive", "icon": "icon_breaker_drive_1", "note": "스트라이커 드라이브"}, {"no": 2104, "type": 4, "sub": 2, "tv": 1, "grade": 4, "max": 9, "kr": "스트라이커 드라이브", "en": "Striker Drive", "icon": "icon_breaker_drive_2", "note": "스트라이커 드라이브"}, {"no": 2105, "type": 4, "sub": 2, "tv": 1, "grade": 5, "max": 9, "kr": "스트라이커 드라이브", "en": "Striker Drive", "icon": "icon_breaker_drive_2", "note": "스트라이커 드라이브"}, {"no": 2106, "type": 4, "sub": 2, "tv": 1, "grade": 6, "max": 9, "kr": "스트라이커 드라이브", "en": "Striker Drive", "icon": "icon_breaker_drive_3", "note": "스트라이커 드라이브"}, {"no": 2107, "type": 4, "sub": 2, "tv": 1, "grade": 7, "max": 9, "kr": "스트라이커 드라이브", "en": "Striker Drive", "icon": "icon_breaker_drive_3", "note": "스트라이커 드라이브"}, {"no": 2108, "type": 4, "sub": 2, "tv": 1, "grade": 8, "max": 9, "kr": "스트라이커 드라이브", "en": "Striker Drive", "icon": "icon_breaker_drive_4", "note": "스트라이커 드라이브"}, {"no": 2109, "type": 4, "sub": 2, "tv": 1, "grade": 9, "max": 9, "kr": "스트라이커 드라이브", "en": "Striker Drive", "icon": "icon_breaker_drive_4", "note": "스트라이커 드라이브"}, {"no": 2110, "type": 4, "sub": 2, "tv": 1, "grade": 10, "max": 9, "kr": "스트라이커 드라이브", "en": "Striker Drive", "icon": "icon_breaker_drive_4", "note": "스트라이커 드라이브"}, {"no": 2111, "type": 4, "sub": 2, "tv": 1, "grade": 11, "max": 9, "kr": "스트라이커 드라이브", "en": "Striker Drive", "icon": "icon_breaker_drive_5", "note": "스트라이커 드라이브"}, {"no": 2112, "type": 4, "sub": 2, "tv": 1, "grade": 12, "max": 9, "kr": "스트라이커 드라이브", "en": "Striker Drive", "icon": "icon_breaker_drive_5", "note": "스트라이커 드라이브"}, {"no": 2113, "type": 4, "sub": 2, "tv": 1, "grade": 13, "max": 9, "kr": "스트라이커 드라이브", "en": "Striker Drive", "icon": "icon_breaker_drive_6", "note": "스트라이커 드라이브"}, {"no": 2114, "type": 4, "sub": 2, "tv": 1, "grade": 14, "max": 9, "kr": "스트라이커 드라이브", "en": "Striker Drive", "icon": "icon_breaker_drive_6", "note": "스트라이커 드라이브"}, {"no": 2201, "type": 4, "sub": 2, "tv": 2, "grade": 1, "max": 9, "kr": "스트라이커 아머", "en": "Striker Armor", "icon": "icon_breaker_armor_1", "note": "스트라이커 아머"}, {"no": 2202, "type": 4, "sub": 2, "tv": 2, "grade": 2, "max": 9, "kr": "스트라이커 아머", "en": "Striker Armor", "icon": "icon_breaker_armor_1", "note": "스트라이커 아머"}, {"no": 2203, "type": 4, "sub": 2, "tv": 2, "grade": 3, "max": 9, "kr": "스트라이커 아머", "en": "Striker Armor", "icon": "icon_breaker_armor_1", "note": "스트라이커 아머"}, {"no": 2204, "type": 4, "sub": 2, "tv": 2, "grade": 4, "max": 9, "kr": "스트라이커 아머", "en": "Striker Armor", "icon": "icon_breaker_armor_2", "note": "스트라이커 아머"}, {"no": 2205, "type": 4, "sub": 2, "tv": 2, "grade": 5, "max": 9, "kr": "스트라이커 아머", "en": "Striker Armor", "icon": "icon_breaker_armor_2", "note": "스트라이커 아머"}, {"no": 2206, "type": 4, "sub": 2, "tv": 2, "grade": 6, "max": 9, "kr": "스트라이커 아머", "en": "Striker Armor", "icon": "icon_breaker_armor_3", "note": "스트라이커 아머"}, {"no": 2207, "type": 4, "sub": 2, "tv": 2, "grade": 7, "max": 9, "kr": "스트라이커 아머", "en": "Striker Armor", "icon": "icon_breaker_armor_3", "note": "스트라이커 아머"}, {"no": 2208, "type": 4, "sub": 2, "tv": 2, "grade": 8, "max": 9, "kr": "스트라이커 아머", "en": "Striker Armor", "icon": "icon_breaker_armor_4", "note": "스트라이커 아머"}, {"no": 2209, "type": 4, "sub": 2, "tv": 2, "grade": 9, "max": 9, "kr": "스트라이커 아머", "en": "Striker Armor", "icon": "icon_breaker_armor_4", "note": "스트라이커 아머"}, {"no": 2210, "type": 4, "sub": 2, "tv": 2, "grade": 10, "max": 9, "kr": "스트라이커 아머", "en": "Striker Armor", "icon": "icon_breaker_armor_4", "note": "스트라이커 아머"}, {"no": 2211, "type": 4, "sub": 2, "tv": 2, "grade": 11, "max": 9, "kr": "스트라이커 아머", "en": "Striker Armor", "icon": "icon_breaker_armor_5", "note": "스트라이커 아머"}, {"no": 2212, "type": 4, "sub": 2, "tv": 2, "grade": 12, "max": 9, "kr": "스트라이커 아머", "en": "Striker Armor", "icon": "icon_breaker_armor_5", "note": "스트라이커 아머"}, {"no": 2213, "type": 4, "sub": 2, "tv": 2, "grade": 13, "max": 9, "kr": "스트라이커 아머", "en": "Striker Armor", "icon": "icon_breaker_armor_6", "note": "스트라이커 아머"}, {"no": 2214, "type": 4, "sub": 2, "tv": 2, "grade": 14, "max": 9, "kr": "스트라이커 아머", "en": "Striker Armor", "icon": "icon_breaker_armor_6", "note": "스트라이커 아머"}, {"no": 2301, "type": 4, "sub": 2, "tv": 3, "grade": 1, "max": 9, "kr": "스트라이커 코어", "en": "Striker Core", "icon": "icon_breaker_core_1", "note": "스트라이커 코어"}, {"no": 2302, "type": 4, "sub": 2, "tv": 3, "grade": 2, "max": 9, "kr": "스트라이커 코어", "en": "Striker Core", "icon": "icon_breaker_core_1", "note": "스트라이커 코어"}, {"no": 2303, "type": 4, "sub": 2, "tv": 3, "grade": 3, "max": 9, "kr": "스트라이커 코어", "en": "Striker Core", "icon": "icon_breaker_core_1", "note": "스트라이커 코어"}, {"no": 2304, "type": 4, "sub": 2, "tv": 3, "grade": 4, "max": 9, "kr": "스트라이커 코어", "en": "Striker Core", "icon": "icon_breaker_core_2", "note": "스트라이커 코어"}, {"no": 2305, "type": 4, "sub": 2, "tv": 3, "grade": 5, "max": 9, "kr": "스트라이커 코어", "en": "Striker Core", "icon": "icon_breaker_core_2", "note": "스트라이커 코어"}, {"no": 2306, "type": 4, "sub": 2, "tv": 3, "grade": 6, "max": 9, "kr": "스트라이커 코어", "en": "Striker Core", "icon": "icon_breaker_core_3", "note": "스트라이커 코어"}, {"no": 2307, "type": 4, "sub": 2, "tv": 3, "grade": 7, "max": 9, "kr": "스트라이커 코어", "en": "Striker Core", "icon": "icon_breaker_core_3", "note": "스트라이커 코어"}, {"no": 2308, "type": 4, "sub": 2, "tv": 3, "grade": 8, "max": 9, "kr": "스트라이커 코어", "en": "Striker Core", "icon": "icon_breaker_core_4", "note": "스트라이커 코어"}, {"no": 2309, "type": 4, "sub": 2, "tv": 3, "grade": 9, "max": 9, "kr": "스트라이커 코어", "en": "Striker Core", "icon": "icon_breaker_core_4", "note": "스트라이커 코어"}, {"no": 2310, "type": 4, "sub": 2, "tv": 3, "grade": 10, "max": 9, "kr": "스트라이커 코어", "en": "Striker Core", "icon": "icon_breaker_core_4", "note": "스트라이커 코어"}, {"no": 2311, "type": 4, "sub": 2, "tv": 3, "grade": 11, "max": 9, "kr": "스트라이커 코어", "en": "Striker Core", "icon": "icon_breaker_core_5", "note": "스트라이커 코어"}, {"no": 2312, "type": 4, "sub": 2, "tv": 3, "grade": 12, "max": 9, "kr": "스트라이커 코어", "en": "Striker Core", "icon": "icon_breaker_core_5", "note": "스트라이커 코어"}, {"no": 2313, "type": 4, "sub": 2, "tv": 3, "grade": 13, "max": 9, "kr": "스트라이커 코어", "en": "Striker Core", "icon": "icon_breaker_core_6", "note": "스트라이커 코어"}, {"no": 2314, "type": 4, "sub": 2, "tv": 3, "grade": 14, "max": 9, "kr": "스트라이커 코어", "en": "Striker Core", "icon": "icon_breaker_core_6", "note": "스트라이커 코어"}, {"no": 3101, "type": 4, "sub": 3, "tv": 1, "grade": 1, "max": 9, "kr": "레인저 드라이브", "en": "Ranger Drive", "icon": "icon_blaster_drive_1", "note": "레인저 드라이브"}, {"no": 3102, "type": 4, "sub": 3, "tv": 1, "grade": 2, "max": 9, "kr": "레인저 드라이브", "en": "Ranger Drive", "icon": "icon_blaster_drive_1", "note": "레인저 드라이브"}, {"no": 3103, "type": 4, "sub": 3, "tv": 1, "grade": 3, "max": 9, "kr": "레인저 드라이브", "en": "Ranger Drive", "icon": "icon_blaster_drive_1", "note": "레인저 드라이브"}, {"no": 3104, "type": 4, "sub": 3, "tv": 1, "grade": 4, "max": 9, "kr": "레인저 드라이브", "en": "Ranger Drive", "icon": "icon_blaster_drive_2", "note": "레인저 드라이브"}, {"no": 3105, "type": 4, "sub": 3, "tv": 1, "grade": 5, "max": 9, "kr": "레인저 드라이브", "en": "Ranger Drive", "icon": "icon_blaster_drive_2", "note": "레인저 드라이브"}, {"no": 3106, "type": 4, "sub": 3, "tv": 1, "grade": 6, "max": 9, "kr": "레인저 드라이브", "en": "Ranger Drive", "icon": "icon_blaster_drive_3", "note": "레인저 드라이브"}, {"no": 3107, "type": 4, "sub": 3, "tv": 1, "grade": 7, "max": 9, "kr": "레인저 드라이브", "en": "Ranger Drive", "icon": "icon_blaster_drive_3", "note": "레인저 드라이브"}, {"no": 3108, "type": 4, "sub": 3, "tv": 1, "grade": 8, "max": 9, "kr": "레인저 드라이브", "en": "Ranger Drive", "icon": "icon_blaster_drive_4", "note": "레인저 드라이브"}, {"no": 3109, "type": 4, "sub": 3, "tv": 1, "grade": 9, "max": 9, "kr": "레인저 드라이브", "en": "Ranger Drive", "icon": "icon_blaster_drive_4", "note": "레인저 드라이브"}, {"no": 3110, "type": 4, "sub": 3, "tv": 1, "grade": 10, "max": 9, "kr": "레인저 드라이브", "en": "Ranger Drive", "icon": "icon_blaster_drive_4", "note": "레인저 드라이브"}, {"no": 3111, "type": 4, "sub": 3, "tv": 1, "grade": 11, "max": 9, "kr": "레인저 드라이브", "en": "Ranger Drive", "icon": "icon_blaster_drive_5", "note": "레인저 드라이브"}, {"no": 3112, "type": 4, "sub": 3, "tv": 1, "grade": 12, "max": 9, "kr": "레인저 드라이브", "en": "Ranger Drive", "icon": "icon_blaster_drive_5", "note": "레인저 드라이브"}, {"no": 3113, "type": 4, "sub": 3, "tv": 1, "grade": 13, "max": 9, "kr": "레인저 드라이브", "en": "Ranger Drive", "icon": "icon_blaster_drive_6", "note": "레인저 드라이브"}, {"no": 3114, "type": 4, "sub": 3, "tv": 1, "grade": 14, "max": 9, "kr": "레인저 드라이브", "en": "Ranger Drive", "icon": "icon_blaster_drive_6", "note": "레인저 드라이브"}, {"no": 3201, "type": 4, "sub": 3, "tv": 2, "grade": 1, "max": 9, "kr": "레인저 아머", "en": "Ranger Armor", "icon": "icon_blaster_armor_1", "note": "레인저 아머"}, {"no": 3202, "type": 4, "sub": 3, "tv": 2, "grade": 2, "max": 9, "kr": "레인저 아머", "en": "Ranger Armor", "icon": "icon_blaster_armor_1", "note": "레인저 아머"}, {"no": 3203, "type": 4, "sub": 3, "tv": 2, "grade": 3, "max": 9, "kr": "레인저 아머", "en": "Ranger Armor", "icon": "icon_blaster_armor_1", "note": "레인저 아머"}, {"no": 3204, "type": 4, "sub": 3, "tv": 2, "grade": 4, "max": 9, "kr": "레인저 아머", "en": "Ranger Armor", "icon": "icon_blaster_armor_2", "note": "레인저 아머"}, {"no": 3205, "type": 4, "sub": 3, "tv": 2, "grade": 5, "max": 9, "kr": "레인저 아머", "en": "Ranger Armor", "icon": "icon_blaster_armor_2", "note": "레인저 아머"}, {"no": 3206, "type": 4, "sub": 3, "tv": 2, "grade": 6, "max": 9, "kr": "레인저 아머", "en": "Ranger Armor", "icon": "icon_blaster_armor_3", "note": "레인저 아머"}, {"no": 3207, "type": 4, "sub": 3, "tv": 2, "grade": 7, "max": 9, "kr": "레인저 아머", "en": "Ranger Armor", "icon": "icon_blaster_armor_3", "note": "레인저 아머"}, {"no": 3208, "type": 4, "sub": 3, "tv": 2, "grade": 8, "max": 9, "kr": "레인저 아머", "en": "Ranger Armor", "icon": "icon_blaster_armor_4", "note": "레인저 아머"}, {"no": 3209, "type": 4, "sub": 3, "tv": 2, "grade": 9, "max": 9, "kr": "레인저 아머", "en": "Ranger Armor", "icon": "icon_blaster_armor_4", "note": "레인저 아머"}, {"no": 3210, "type": 4, "sub": 3, "tv": 2, "grade": 10, "max": 9, "kr": "레인저 아머", "en": "Ranger Armor", "icon": "icon_blaster_armor_4", "note": "레인저 아머"}, {"no": 3211, "type": 4, "sub": 3, "tv": 2, "grade": 11, "max": 9, "kr": "레인저 아머", "en": "Ranger Armor", "icon": "icon_blaster_armor_5", "note": "레인저 아머"}, {"no": 3212, "type": 4, "sub": 3, "tv": 2, "grade": 12, "max": 9, "kr": "레인저 아머", "en": "Ranger Armor", "icon": "icon_blaster_armor_5", "note": "레인저 아머"}, {"no": 3213, "type": 4, "sub": 3, "tv": 2, "grade": 13, "max": 9, "kr": "레인저 아머", "en": "Ranger Armor", "icon": "icon_blaster_armor_6", "note": "레인저 아머"}, {"no": 3214, "type": 4, "sub": 3, "tv": 2, "grade": 14, "max": 9, "kr": "레인저 아머", "en": "Ranger Armor", "icon": "icon_blaster_armor_6", "note": "레인저 아머"}, {"no": 3301, "type": 4, "sub": 3, "tv": 3, "grade": 1, "max": 9, "kr": "레인저 코어", "en": "Ranger Core", "icon": "icon_blaster_core_1", "note": "레인저 코어"}, {"no": 3302, "type": 4, "sub": 3, "tv": 3, "grade": 2, "max": 9, "kr": "레인저 코어", "en": "Ranger Core", "icon": "icon_blaster_core_1", "note": "레인저 코어"}, {"no": 3303, "type": 4, "sub": 3, "tv": 3, "grade": 3, "max": 9, "kr": "레인저 코어", "en": "Ranger Core", "icon": "icon_blaster_core_1", "note": "레인저 코어"}, {"no": 3304, "type": 4, "sub": 3, "tv": 3, "grade": 4, "max": 9, "kr": "레인저 코어", "en": "Ranger Core", "icon": "icon_blaster_core_2", "note": "레인저 코어"}, {"no": 3305, "type": 4, "sub": 3, "tv": 3, "grade": 5, "max": 9, "kr": "레인저 코어", "en": "Ranger Core", "icon": "icon_blaster_core_2", "note": "레인저 코어"}, {"no": 3306, "type": 4, "sub": 3, "tv": 3, "grade": 6, "max": 9, "kr": "레인저 코어", "en": "Ranger Core", "icon": "icon_blaster_core_3", "note": "레인저 코어"}, {"no": 3307, "type": 4, "sub": 3, "tv": 3, "grade": 7, "max": 9, "kr": "레인저 코어", "en": "Ranger Core", "icon": "icon_blaster_core_3", "note": "레인저 코어"}, {"no": 3308, "type": 4, "sub": 3, "tv": 3, "grade": 8, "max": 9, "kr": "레인저 코어", "en": "Ranger Core", "icon": "icon_blaster_core_4", "note": "레인저 코어"}, {"no": 3309, "type": 4, "sub": 3, "tv": 3, "grade": 9, "max": 9, "kr": "레인저 코어", "en": "Ranger Core", "icon": "icon_blaster_core_4", "note": "레인저 코어"}, {"no": 3310, "type": 4, "sub": 3, "tv": 3, "grade": 10, "max": 9, "kr": "레인저 코어", "en": "Ranger Core", "icon": "icon_blaster_core_4", "note": "레인저 코어"}, {"no": 3311, "type": 4, "sub": 3, "tv": 3, "grade": 11, "max": 9, "kr": "레인저 코어", "en": "Ranger Core", "icon": "icon_blaster_core_5", "note": "레인저 코어"}, {"no": 3312, "type": 4, "sub": 3, "tv": 3, "grade": 12, "max": 9, "kr": "레인저 코어", "en": "Ranger Core", "icon": "icon_blaster_core_5", "note": "레인저 코어"}, {"no": 3313, "type": 4, "sub": 3, "tv": 3, "grade": 13, "max": 9, "kr": "레인저 코어", "en": "Ranger Core", "icon": "icon_blaster_core_6", "note": "레인저 코어"}, {"no": 3314, "type": 4, "sub": 3, "tv": 3, "grade": 14, "max": 9, "kr": "레인저 코어", "en": "Ranger Core", "icon": "icon_blaster_core_6", "note": "레인저 코어"}, {"no": 4101, "type": 4, "sub": 4, "tv": 1, "grade": 1, "max": 9, "kr": "에이전트 드라이브", "en": "Agent Drive", "icon": "icon_supporter_drive_1", "note": "에이전트 드라이브"}, {"no": 4102, "type": 4, "sub": 4, "tv": 1, "grade": 2, "max": 9, "kr": "에이전트 드라이브", "en": "Agent Drive", "icon": "icon_supporter_drive_1", "note": "에이전트 드라이브"}, {"no": 4103, "type": 4, "sub": 4, "tv": 1, "grade": 3, "max": 9, "kr": "에이전트 드라이브", "en": "Agent Drive", "icon": "icon_supporter_drive_1", "note": "에이전트 드라이브"}, {"no": 4104, "type": 4, "sub": 4, "tv": 1, "grade": 4, "max": 9, "kr": "에이전트 드라이브", "en": "Agent Drive", "icon": "icon_supporter_drive_2", "note": "에이전트 드라이브"}, {"no": 4105, "type": 4, "sub": 4, "tv": 1, "grade": 5, "max": 9, "kr": "에이전트 드라이브", "en": "Agent Drive", "icon": "icon_supporter_drive_2", "note": "에이전트 드라이브"}, {"no": 4106, "type": 4, "sub": 4, "tv": 1, "grade": 6, "max": 9, "kr": "에이전트 드라이브", "en": "Agent Drive", "icon": "icon_supporter_drive_3", "note": "에이전트 드라이브"}, {"no": 4107, "type": 4, "sub": 4, "tv": 1, "grade": 7, "max": 9, "kr": "에이전트 드라이브", "en": "Agent Drive", "icon": "icon_supporter_drive_3", "note": "에이전트 드라이브"}, {"no": 4108, "type": 4, "sub": 4, "tv": 1, "grade": 8, "max": 9, "kr": "에이전트 드라이브", "en": "Agent Drive", "icon": "icon_supporter_drive_4", "note": "에이전트 드라이브"}, {"no": 4109, "type": 4, "sub": 4, "tv": 1, "grade": 9, "max": 9, "kr": "에이전트 드라이브", "en": "Agent Drive", "icon": "icon_supporter_drive_4", "note": "에이전트 드라이브"}, {"no": 4110, "type": 4, "sub": 4, "tv": 1, "grade": 10, "max": 9, "kr": "에이전트 드라이브", "en": "Agent Drive", "icon": "icon_supporter_drive_4", "note": "에이전트 드라이브"}, {"no": 4111, "type": 4, "sub": 4, "tv": 1, "grade": 11, "max": 9, "kr": "에이전트 드라이브", "en": "Agent Drive", "icon": "icon_supporter_drive_5", "note": "에이전트 드라이브"}, {"no": 4112, "type": 4, "sub": 4, "tv": 1, "grade": 12, "max": 9, "kr": "에이전트 드라이브", "en": "Agent Drive", "icon": "icon_supporter_drive_5", "note": "에이전트 드라이브"}, {"no": 4113, "type": 4, "sub": 4, "tv": 1, "grade": 13, "max": 9, "kr": "에이전트 드라이브", "en": "Agent Drive", "icon": "icon_supporter_drive_6", "note": "에이전트 드라이브"}, {"no": 4114, "type": 4, "sub": 4, "tv": 1, "grade": 14, "max": 9, "kr": "에이전트 드라이브", "en": "Agent Drive", "icon": "icon_supporter_drive_6", "note": "에이전트 드라이브"}, {"no": 4201, "type": 4, "sub": 4, "tv": 2, "grade": 1, "max": 9, "kr": "에이전트 아머", "en": "Agent Armor", "icon": "icon_supporter_armor_1", "note": "에이전트 아머"}, {"no": 4202, "type": 4, "sub": 4, "tv": 2, "grade": 2, "max": 9, "kr": "에이전트 아머", "en": "Agent Armor", "icon": "icon_supporter_armor_1", "note": "에이전트 아머"}, {"no": 4203, "type": 4, "sub": 4, "tv": 2, "grade": 3, "max": 9, "kr": "에이전트 아머", "en": "Agent Armor", "icon": "icon_supporter_armor_1", "note": "에이전트 아머"}, {"no": 4204, "type": 4, "sub": 4, "tv": 2, "grade": 4, "max": 9, "kr": "에이전트 아머", "en": "Agent Armor", "icon": "icon_supporter_armor_2", "note": "에이전트 아머"}, {"no": 4205, "type": 4, "sub": 4, "tv": 2, "grade": 5, "max": 9, "kr": "에이전트 아머", "en": "Agent Armor", "icon": "icon_supporter_armor_2", "note": "에이전트 아머"}, {"no": 4206, "type": 4, "sub": 4, "tv": 2, "grade": 6, "max": 9, "kr": "에이전트 아머", "en": "Agent Armor", "icon": "icon_supporter_armor_3", "note": "에이전트 아머"}, {"no": 4207, "type": 4, "sub": 4, "tv": 2, "grade": 7, "max": 9, "kr": "에이전트 아머", "en": "Agent Armor", "icon": "icon_supporter_armor_3", "note": "에이전트 아머"}, {"no": 4208, "type": 4, "sub": 4, "tv": 2, "grade": 8, "max": 9, "kr": "에이전트 아머", "en": "Agent Armor", "icon": "icon_supporter_armor_4", "note": "에이전트 아머"}, {"no": 4209, "type": 4, "sub": 4, "tv": 2, "grade": 9, "max": 9, "kr": "에이전트 아머", "en": "Agent Armor", "icon": "icon_supporter_armor_4", "note": "에이전트 아머"}, {"no": 4210, "type": 4, "sub": 4, "tv": 2, "grade": 10, "max": 9, "kr": "에이전트 아머", "en": "Agent Armor", "icon": "icon_supporter_armor_4", "note": "에이전트 아머"}, {"no": 4211, "type": 4, "sub": 4, "tv": 2, "grade": 11, "max": 9, "kr": "에이전트 아머", "en": "Agent Armor", "icon": "icon_supporter_armor_5", "note": "에이전트 아머"}, {"no": 4212, "type": 4, "sub": 4, "tv": 2, "grade": 12, "max": 9, "kr": "에이전트 아머", "en": "Agent Armor", "icon": "icon_supporter_armor_5", "note": "에이전트 아머"}, {"no": 4213, "type": 4, "sub": 4, "tv": 2, "grade": 13, "max": 9, "kr": "에이전트 아머", "en": "Agent Armor", "icon": "icon_supporter_armor_6", "note": "에이전트 아머"}, {"no": 4214, "type": 4, "sub": 4, "tv": 2, "grade": 14, "max": 9, "kr": "에이전트 아머", "en": "Agent Armor", "icon": "icon_supporter_armor_6", "note": "에이전트 아머"}, {"no": 4301, "type": 4, "sub": 4, "tv": 3, "grade": 1, "max": 9, "kr": "에이전트 코어", "en": "Agent Core", "icon": "icon_supporter_core_1", "note": "에이전트 코어"}, {"no": 4302, "type": 4, "sub": 4, "tv": 3, "grade": 2, "max": 9, "kr": "에이전트 코어", "en": "Agent Core", "icon": "icon_supporter_core_1", "note": "에이전트 코어"}, {"no": 4303, "type": 4, "sub": 4, "tv": 3, "grade": 3, "max": 9, "kr": "에이전트 코어", "en": "Agent Core", "icon": "icon_supporter_core_1", "note": "에이전트 코어"}, {"no": 4304, "type": 4, "sub": 4, "tv": 3, "grade": 4, "max": 9, "kr": "에이전트 코어", "en": "Agent Core", "icon": "icon_supporter_core_2", "note": "에이전트 코어"}, {"no": 4305, "type": 4, "sub": 4, "tv": 3, "grade": 5, "max": 9, "kr": "에이전트 코어", "en": "Agent Core", "icon": "icon_supporter_core_2", "note": "에이전트 코어"}, {"no": 4306, "type": 4, "sub": 4, "tv": 3, "grade": 6, "max": 9, "kr": "에이전트 코어", "en": "Agent Core", "icon": "icon_supporter_core_3", "note": "에이전트 코어"}, {"no": 4307, "type": 4, "sub": 4, "tv": 3, "grade": 7, "max": 9, "kr": "에이전트 코어", "en": "Agent Core", "icon": "icon_supporter_core_3", "note": "에이전트 코어"}, {"no": 4308, "type": 4, "sub": 4, "tv": 3, "grade": 8, "max": 9, "kr": "에이전트 코어", "en": "Agent Core", "icon": "icon_supporter_core_4", "note": "에이전트 코어"}, {"no": 4309, "type": 4, "sub": 4, "tv": 3, "grade": 9, "max": 9, "kr": "에이전트 코어", "en": "Agent Core", "icon": "icon_supporter_core_4", "note": "에이전트 코어"}, {"no": 4310, "type": 4, "sub": 4, "tv": 3, "grade": 10, "max": 9, "kr": "에이전트 코어", "en": "Agent Core", "icon": "icon_supporter_core_4", "note": "에이전트 코어"}, {"no": 4311, "type": 4, "sub": 4, "tv": 3, "grade": 11, "max": 9, "kr": "에이전트 코어", "en": "Agent Core", "icon": "icon_supporter_core_5", "note": "에이전트 코어"}, {"no": 4312, "type": 4, "sub": 4, "tv": 3, "grade": 12, "max": 9, "kr": "에이전트 코어", "en": "Agent Core", "icon": "icon_supporter_core_5", "note": "에이전트 코어"}, {"no": 4313, "type": 4, "sub": 4, "tv": 3, "grade": 13, "max": 9, "kr": "에이전트 코어", "en": "Agent Core", "icon": "icon_supporter_core_6", "note": "에이전트 코어"}, {"no": 4314, "type": 4, "sub": 4, "tv": 3, "grade": 14, "max": 9, "kr": "에이전트 코어", "en": "Agent Core", "icon": "icon_supporter_core_6", "note": "에이전트 코어"}, {"no": 10001, "type": 3, "sub": 10, "tv": 0, "grade": 1, "max": 999, "kr": "일반 챕터 클리어 보상", "en": "Normal Chapter Clear Reward", "icon": "icon_growth_produce_3", "note": "일반 스테이지 클리어 보상"}, {"no": 10002, "type": 3, "sub": 10, "tv": 0, "grade": 1, "max": 999, "kr": "보스 클리어 보상", "en": "Boss Clear Reward", "icon": "icon_growth_produce_3", "note": "보스 스테이지 클리어 보상"}, {"no": 11000, "type": 3, "sub": 11, "tv": 0, "grade": 2, "max": 999, "kr": "소환 패키지 I", "en": "Summon Package I", "icon": "icon_shop_pkg_1", "note": "소환 패키지 I"}, {"no": 11001, "type": 3, "sub": 11, "tv": 0, "grade": 4, "max": 999, "kr": "소환 패키지 II", "en": "Summon Package II", "icon": "icon_shop_pkg_2", "note": "소환 패키지 II"}, {"no": 11002, "type": 3, "sub": 11, "tv": 0, "grade": 6, "max": 999, "kr": "소환 패키지 III", "en": "Summon Package III", "icon": "icon_shop_pkg_3", "note": "소환 패키지 III"}, {"no": 11003, "type": 3, "sub": 11, "tv": 0, "grade": 8, "max": 999, "kr": "소환 패키지 IV", "en": "Summon Package IV", "icon": "icon_shop_pkg_4", "note": "소환 패키지 IV"}, {"no": 11004, "type": 3, "sub": 11, "tv": 0, "grade": 10, "max": 999, "kr": "소환 패키지 V", "en": "Summon Package V", "icon": "icon_shop_pkg_5", "note": "소환 패키지 V"}, {"no": 11005, "type": 3, "sub": 11, "tv": 0, "grade": 4, "max": 999, "kr": "아가타 소환 패키지", "en": "Agatha Summon Package", "icon": "icon_shop_pkg_2", "note": "아가타 소환 패키지"}, {"no": 11006, "type": 3, "sub": 11, "tv": 0, "grade": 4, "max": 999, "kr": "스킬 소환 패키지", "en": "Skill Summon Package", "icon": "icon_shop_pkg_2", "note": "스킬 소환 패키지"}, {"no": 11007, "type": 3, "sub": 11, "tv": 0, "grade": 4, "max": 999, "kr": "서포터 봇 소환 패키지", "en": "Support Bot Summon Package", "icon": "icon_shop_pkg_2", "note": "서포터 봇 소환 패키지"}, {"no": 11008, "type": 3, "sub": 11, "tv": 0, "grade": 2, "max": 999, "kr": "던전 패키지 I", "en": "Dungeon Package I", "icon": "icon_shop_pkg_1", "note": "던전 패키지 I"}, {"no": 11009, "type": 3, "sub": 11, "tv": 0, "grade": 4, "max": 999, "kr": "던전 패키지 II", "en": "Dungeon Package II", "icon": "icon_shop_pkg_2", "note": "던전 패키지 II"}, {"no": 11010, "type": 3, "sub": 11, "tv": 0, "grade": 6, "max": 999, "kr": "던전 패키지 III", "en": "Dungeon Package III", "icon": "icon_shop_pkg_3", "note": "던전 패키지 III"}, {"no": 11011, "type": 3, "sub": 11, "tv": 0, "grade": 2, "max": 999, "kr": "건설 패키지 I", "en": "Construction Package I", "icon": "icon_shop_pkg_1", "note": "건설 패키지 I"}, {"no": 11012, "type": 3, "sub": 11, "tv": 0, "grade": 4, "max": 999, "kr": "건설 패키지 II", "en": "Construction Package II", "icon": "icon_shop_pkg_2", "note": "건설 패키지 II"}, {"no": 11013, "type": 3, "sub": 11, "tv": 0, "grade": 6, "max": 999, "kr": "건설 패키지 III", "en": "Construction Package III", "icon": "icon_shop_pkg_3", "note": "건설 패키지 III"}, {"no": 11014, "type": 3, "sub": 11, "tv": 0, "grade": 2, "max": 999, "kr": "모듈 던전 패키지", "en": "Module Dungeon Package", "icon": "icon_shop_pkg_1", "note": "모듈 던전 패키지"}, {"no": 11015, "type": 3, "sub": 11, "tv": 0, "grade": 2, "max": 999, "kr": "소환 던전 패키지", "en": "Summon Dungeon Package", "icon": "icon_shop_pkg_1", "note": "소환 던전 패키지"}, {"no": 11016, "type": 3, "sub": 11, "tv": 0, "grade": 2, "max": 999, "kr": "통제 구역 던전 패키지", "en": "Control Zone Dungeon Package", "icon": "icon_shop_pkg_1", "note": "통제구역 던전 패키지"}, {"no": 11017, "type": 3, "sub": 11, "tv": 0, "grade": 2, "max": 999, "kr": "개발 센터 던전 패키지", "en": "Dev Center Dungeon Package", "icon": "icon_shop_pkg_1", "note": "개발센터 던전 패키지"}, {"no": 11018, "type": 3, "sub": 11, "tv": 0, "grade": 2, "max": 999, "kr": "연구소 던전 패키지", "en": "Lab Dungeon Package", "icon": "icon_shop_pkg_1", "note": "연구소 던전 패키지"}, {"no": 11019, "type": 3, "sub": 11, "tv": 0, "grade": 2, "max": 999, "kr": "결투장 패키지", "en": "Arena Package", "icon": "icon_shop_pkg_1", "note": "결투장 패키지"}, {"no": 11020, "type": 3, "sub": 11, "tv": 0, "grade": 4, "max": 999, "kr": "종합 건설 패키지", "en": "Comprehensive Construction Package", "icon": "icon_shop_pkg_2", "note": "종합 건설 패키지"}, {"no": 11021, "type": 3, "sub": 11, "tv": 0, "grade": 2, "max": 999, "kr": "통제 구역 건설 패키지", "en": "Control Zone Construction Package", "icon": "icon_shop_pkg_1", "note": "통제구역 건설 패키지"}, {"no": 11022, "type": 3, "sub": 11, "tv": 0, "grade": 2, "max": 999, "kr": "개발 센터 건설 패키지", "en": "Dev Center Construction Package", "icon": "icon_shop_pkg_1", "note": "개발센터 건설 패키지"}, {"no": 11023, "type": 3, "sub": 11, "tv": 0, "grade": 2, "max": 999, "kr": "채굴소 강화 패키지", "en": "Mine Enhancement Package", "icon": "icon_shop_pkg_1", "note": "광산 강화 패키지"}, {"no": 11024, "type": 3, "sub": 11, "tv": 0, "grade": 2, "max": 999, "kr": "제작소 강화 패키지", "en": "Workshop Enhancement Package", "icon": "icon_shop_pkg_1", "note": "공장 강화 패키지"}, {"no": 11025, "type": 3, "sub": 11, "tv": 0, "grade": 2, "max": 999, "kr": "보급소 강화 패키지", "en": "Depot Enhancement Package", "icon": "icon_shop_pkg_1", "note": "마트 강화 패키지"}, {"no": 11026, "type": 3, "sub": 11, "tv": 0, "grade": 2, "max": 999, "kr": "소환 스텝 업 1", "en": "Summon Step Up 1", "icon": "icon_shop_stepup_11", "note": "소환 스텝업1"}, {"no": 11027, "type": 3, "sub": 11, "tv": 0, "grade": 4, "max": 999, "kr": "소환 스텝 업 2", "en": "Summon Step Up 2", "icon": "icon_shop_stepup_21", "note": "소환 스텝업2"}, {"no": 11028, "type": 3, "sub": 11, "tv": 0, "grade": 6, "max": 999, "kr": "소환 스텝 업 3", "en": "Summon Step Up 3", "icon": "icon_shop_stepup_31", "note": "소환 스텝업3"}, {"no": 11029, "type": 3, "sub": 11, "tv": 0, "grade": 2, "max": 999, "kr": "던전 스텝 업 1", "en": "Dungeon Step Up 1", "icon": "icon_shop_stepup_11", "note": "던전 스텝업1"}, {"no": 11030, "type": 3, "sub": 11, "tv": 0, "grade": 4, "max": 999, "kr": "던전 스텝 업 2", "en": "Dungeon Step Up 2", "icon": "icon_shop_stepup_21", "note": "던전 스텝업2"}, {"no": 11031, "type": 3, "sub": 11, "tv": 0, "grade": 6, "max": 999, "kr": "던전 스텝 업 3", "en": "Dungeon Step Up 3", "icon": "icon_shop_stepup_31", "note": "던전 스텝업3"}, {"no": 11032, "type": 3, "sub": 11, "tv": 0, "grade": 2, "max": 999, "kr": "성장 스텝 업 1", "en": "Upgrade Step Up 1", "icon": "icon_shop_stepup_11", "note": "성장 스텝업1"}, {"no": 11033, "type": 3, "sub": 11, "tv": 0, "grade": 4, "max": 999, "kr": "성장 스텝 업 2", "en": "Upgrade Step Up 2", "icon": "icon_shop_stepup_21", "note": "성장 스텝업2"}, {"no": 11034, "type": 3, "sub": 11, "tv": 0, "grade": 6, "max": 999, "kr": "성장 스텝 업 3", "en": "Upgrade Step Up 3", "icon": "icon_shop_stepup_31", "note": "성장 스텝업3"}, {"no": 11035, "type": 3, "sub": 11, "tv": 0, "grade": 6, "max": 999, "kr": "종합 건설 패키지 II", "en": "Comprehensive Construction Package II", "icon": "icon_shop_pkg_2", "note": "종합 건설 패키지 II"}, {"no": 11036, "type": 3, "sub": 11, "tv": 0, "grade": 4, "max": 999, "kr": "통제 구역 건설 패키지 II", "en": "Control Zone Construction Package II", "icon": "icon_shop_pkg_1", "note": "통제구역 건설 패키지 II"}, {"no": 11037, "type": 3, "sub": 11, "tv": 0, "grade": 4, "max": 999, "kr": "개발 센터 건설 패키지 II", "en": "Dev Center Construction Package II", "icon": "icon_shop_pkg_1", "note": "개발센터 건설 패키지 II"}, {"no": 12001, "type": 3, "sub": 11, "tv": 0, "grade": 1, "max": 999, "kr": "스텝 업 패스 패키지", "en": "Step Up Pass Package", "icon": "icon_shop_pkg_1", "note": "스텝 업 패스 패키지"}, {"no": 12002, "type": 3, "sub": 11, "tv": 0, "grade": 2, "max": 999, "kr": "스텝 업 패스 패키지", "en": "Step Up Pass Package", "icon": "icon_shop_pkg_1", "note": "스텝 업 패스 패키지"}, {"no": 12003, "type": 3, "sub": 11, "tv": 0, "grade": 3, "max": 999, "kr": "스텝 업 패스 패키지", "en": "Step Up Pass Package", "icon": "icon_shop_pkg_1", "note": "스텝 업 패스 패키지"}, {"no": 12004, "type": 3, "sub": 11, "tv": 0, "grade": 4, "max": 999, "kr": "스텝 업 패스 패키지", "en": "Step Up Pass Package", "icon": "icon_shop_pkg_1", "note": "스텝 업 패스 패키지"}, {"no": 13001, "type": 3, "sub": 11, "tv": 0, "grade": 1, "max": 999, "kr": "광고 제거 (30일)", "en": "Remove Ads (30 Days)", "icon": "icon_shop_ads_remove_30", "note": "광고 제거 (30일)"}, {"no": 13002, "type": 3, "sub": 11, "tv": 0, "grade": 1, "max": 999, "kr": "광고 제거 (영구)", "en": "Remove Ads (Permanent)", "icon": "icon_shop_ads_remove", "note": "광고 제거 (영구)"}, {"no": 14001, "type": 3, "sub": 11, "tv": 0, "grade": 1, "max": 999, "kr": "모듈 제작 가속 (30일)", "en": "Module Crafting Boost (30 Days)", "icon": "icon_shop_modulecraft_speed_30", "note": "모듈 제작 가속 (영구)"}, {"no": 14002, "type": 3, "sub": 11, "tv": 0, "grade": 1, "max": 999, "kr": "모듈 제작 가속 (영구)", "en": "Module Crafting Boost (Permanent)", "icon": "icon_shop_modulecraft_speed", "note": "모듈 제작 가속 (30일)"}, {"no": 15001, "type": 3, "sub": 11, "tv": 0, "grade": 1, "max": 999, "kr": "정기 점검 보상", "en": "Scheduled Maintenance Reward", "icon": "icon_shop_pkg_2", "note": "정기 점검 보상"}, {"no": 15002, "type": 3, "sub": 11, "tv": 0, "grade": 1, "max": 999, "kr": "긴급(연장) 점검 보상 1", "en": "Emergency (Extended) Maintenance Reward 1", "icon": "icon_shop_pkg_1", "note": "긴급(연장) 점검 보상 1"}, {"no": 15003, "type": 3, "sub": 11, "tv": 0, "grade": 1, "max": 999, "kr": "긴급(연장) 점검 보상 2", "en": "Emergency (Extended) Maintenance Reward 2", "icon": "icon_shop_pkg_2", "note": "긴급(연장) 점검 보상 2"}, {"no": 15004, "type": 3, "sub": 11, "tv": 0, "grade": 1, "max": 999, "kr": "긴급(연장) 점검 보상 4", "en": "Emergency (Extended) Maintenance Reward 4", "icon": "icon_shop_pkg_3", "note": "긴급(연장) 점검 보상 4"}, {"no": 15005, "type": 3, "sub": 11, "tv": 0, "grade": 1, "max": 999, "kr": "긴급(연장) 점검 보상 6", "en": "Emergency (Extended) Maintenance Reward 6", "icon": "icon_shop_pkg_4", "note": "긴급(연장) 점검 보상 6"}, {"no": 15006, "type": 3, "sub": 11, "tv": 0, "grade": 1, "max": 999, "kr": "긴급(연장) 점검 보상 8", "en": "Emergency (Extended) Maintenance Reward 8", "icon": "icon_shop_pkg_5", "note": "긴급(연장) 점검 보상 8"}, {"no": 140001, "type": 3, "sub": 11, "tv": 0, "grade": 1, "max": 999, "kr": "소환 핫딜 패키지 I", "en": "Summon Hot Deal Package I", "icon": "icon_shop_pkg_1", "note": "소환 핫딜 패키지 I"}, {"no": 140002, "type": 3, "sub": 11, "tv": 0, "grade": 1, "max": 999, "kr": "소환 핫딜 패키지 II", "en": "Summon Hot Deal Package II", "icon": "icon_shop_pkg_1", "note": "소환 핫딜 패키지 II"}, {"no": 140003, "type": 3, "sub": 11, "tv": 0, "grade": 1, "max": 999, "kr": "소환 핫딜 패키지 III", "en": "Summon Hot Deal Package III", "icon": "icon_shop_pkg_1", "note": "소환 핫딜 패키지 III"}, {"no": 140004, "type": 3, "sub": 11, "tv": 0, "grade": 1, "max": 999, "kr": "소환 핫딜 패키지 IV", "en": "Summon Hot Deal Package IV", "icon": "icon_shop_pkg_1", "note": "소환 핫딜 패키지 IV"}, {"no": 140005, "type": 3, "sub": 11, "tv": 0, "grade": 1, "max": 999, "kr": "소환 핫딜 패키지 V", "en": "Summon Hot Deal Package V", "icon": "icon_shop_pkg_1", "note": "소환 핫딜 패키지 V"}, {"no": 140101, "type": 3, "sub": 11, "tv": 0, "grade": 1, "max": 999, "kr": "아가타 소환 핫딜 I", "en": "Agatha Summon Hot Deal I", "icon": "icon_shop_pkg_1", "note": "아가타 소환 핫딜 I"}, {"no": 140102, "type": 3, "sub": 11, "tv": 0, "grade": 1, "max": 999, "kr": "아가타 소환 핫딜 II", "en": "Agatha Summon Hot Deal II", "icon": "icon_shop_pkg_1", "note": "아가타 소환 핫딜 II"}, {"no": 140103, "type": 3, "sub": 11, "tv": 0, "grade": 1, "max": 999, "kr": "아가타 소환 핫딜 III", "en": "Agatha Summon Hot Deal III", "icon": "icon_shop_pkg_1", "note": "아가타 소환 핫딜 III"}, {"no": 140104, "type": 3, "sub": 11, "tv": 0, "grade": 1, "max": 999, "kr": "아가타 소환 핫딜 IV", "en": "Agatha Summon Hot Deal IV", "icon": "icon_shop_pkg_1", "note": "아가타 소환 핫딜 IV"}, {"no": 140105, "type": 3, "sub": 11, "tv": 0, "grade": 1, "max": 999, "kr": "아가타 소환 핫딜 V", "en": "Agatha Summon Hot Deal V", "icon": "icon_shop_pkg_1", "note": "아가타 소환 핫딜 V"}, {"no": 140201, "type": 3, "sub": 11, "tv": 0, "grade": 1, "max": 999, "kr": "스킬 소환 핫딜 I", "en": "Skill Summon Hot Deal I", "icon": "icon_shop_pkg_1", "note": "스킬 소환 핫딜 I"}, {"no": 140202, "type": 3, "sub": 11, "tv": 0, "grade": 1, "max": 999, "kr": "스킬 소환 핫딜 II", "en": "Skill Summon Hot Deal II", "icon": "icon_shop_pkg_1", "note": "스킬 소환 핫딜 II"}, {"no": 140203, "type": 3, "sub": 11, "tv": 0, "grade": 1, "max": 999, "kr": "스킬 소환 핫딜 III", "en": "Skill Summon Hot Deal III", "icon": "icon_shop_pkg_1", "note": "스킬 소환 핫딜 III"}, {"no": 140204, "type": 3, "sub": 11, "tv": 0, "grade": 1, "max": 999, "kr": "스킬 소환 핫딜 IV", "en": "Skill Summon Hot Deal IV", "icon": "icon_shop_pkg_1", "note": "스킬 소환 핫딜 IV"}, {"no": 140205, "type": 3, "sub": 11, "tv": 0, "grade": 1, "max": 999, "kr": "스킬 소환 핫딜 V", "en": "Skill Summon Hot Deal V", "icon": "icon_shop_pkg_1", "note": "스킬 소환 핫딜 V"}, {"no": 140301, "type": 3, "sub": 11, "tv": 0, "grade": 1, "max": 999, "kr": "서포터 봇 소환 핫딜 I", "en": "Supporter Bot Summon Hot Deal I", "icon": "icon_shop_pkg_1", "note": "서포터 봇 소환 핫딜 I"}, {"no": 140302, "type": 3, "sub": 11, "tv": 0, "grade": 1, "max": 999, "kr": "서포터 봇 소환 핫딜 II", "en": "Supporter Bot Summon Hot Deal II", "icon": "icon_shop_pkg_1", "note": "서포터 봇 소환 핫딜 II"}, {"no": 140303, "type": 3, "sub": 11, "tv": 0, "grade": 1, "max": 999, "kr": "서포터 봇 소환 핫딜 III", "en": "Supporter Bot Summon Hot Deal III", "icon": "icon_shop_pkg_1", "note": "서포터 봇 소환 핫딜 III"}, {"no": 140304, "type": 3, "sub": 11, "tv": 0, "grade": 1, "max": 999, "kr": "서포터 봇 소환 핫딜 IV", "en": "Supporter Bot Summon Hot Deal IV", "icon": "icon_shop_pkg_1", "note": "서포터 봇 소환 핫딜 IV"}, {"no": 140305, "type": 3, "sub": 11, "tv": 0, "grade": 1, "max": 999, "kr": "서포터 봇 소환 핫딜 V", "en": "Supporter Bot Summon Hot Deal V", "icon": "icon_shop_pkg_1", "note": "서포터 봇 소환 핫딜 V"}, {"no": 140401, "type": 3, "sub": 11, "tv": 0, "grade": 1, "max": 999, "kr": "건설 핫딜 패키지 I", "en": "Construction Hot Deal Package I", "icon": "icon_shop_pkg_1", "note": "건설 핫딜 패키지 I"}, {"no": 140402, "type": 3, "sub": 11, "tv": 0, "grade": 1, "max": 999, "kr": "건설 핫딜 패키지 II", "en": "Construction Hot Deal Package II", "icon": "icon_shop_pkg_1", "note": "건설 핫딜 패키지 II"}, {"no": 140403, "type": 3, "sub": 11, "tv": 0, "grade": 1, "max": 999, "kr": "건설 핫딜 패키지 III", "en": "Construction Hot Deal Package III", "icon": "icon_shop_pkg_1", "note": "건설 핫딜 패키지 III"}, {"no": 140404, "type": 3, "sub": 11, "tv": 0, "grade": 1, "max": 999, "kr": "건설 핫딜 패키지 IV", "en": "Construction Hot Deal Package IV", "icon": "icon_shop_pkg_1", "note": "건설 핫딜 패키지 IV"}, {"no": 140405, "type": 3, "sub": 11, "tv": 0, "grade": 1, "max": 999, "kr": "건설 핫딜 패키지 V", "en": "Construction Hot Deal Package V", "icon": "icon_shop_pkg_1", "note": "건설 핫딜 패키지 V"}], "mails": [{"no": 101, "type": 1, "expire": 7, "title": 1473, "context": 1424, "reward_no": 15001, "reward_count": 1, "subject_text": "{\"ko\": \"정기 점검 보상\", \"en\": \"Scheduled Maintenance Reward\"}", "desc_text": "{\"ko\": \"싱커님/1 안녕하세요./n/n정기 점검이 완료되었습니다./n기다려 주신 것에 감사드리며/1 보상을 지급해 드립니다./n/n더 안정적인 게임 환경을 제공하기 위해 노력하겠습니다./n감사합니다.\", \"en\": \"Hello/1 Sinker./n/nThe scheduled maintenance has been completed./nThank you for waiting/1 and please accept this reward./n/nWe will keep working to provide a more stable game environment./nThank you.\"}", "from_text": "{\"ko\": \"GM 하논\", \"en\": \"GM Hanon\"}", "memo": "정기 점검 보상", "title_kr": "정기 정검 보상", "context_kr": "정기 점검을 기다려 주셔서 감사합니다. 유저분들께 큰 불편을 드려 죄송합니다."}, {"no": 102, "type": 1, "expire": 7, "title": 1425, "context": 1426, "reward_no": 15002, "reward_count": 1, "subject_text": "{\"ko\": \"긴급 점검 보상\", \"en\": \"Emergency Maintenance Reward\"}", "desc_text": "{\"ko\": \"싱커님/1 안녕하세요./n/n긴급 점검으로 게임 이용에 불편을 드려 죄송합니다./n기다려 주신 싱커님께 보상을 지급해 드립니다./n/n보다 안정적인 서비스를 제공하기 위해 노력하겠습니다./n감사합니다.\", \"en\": \"Hello/1 Sinker./n/nWe apologize for the inconvenience caused by the emergency maintenance./nA reward has been sent to you for your patience./n/nWe will keep working to provide a more stable service./nThank you.\"}", "from_text": "{\"ko\": \"GM 하논\", \"en\": \"GM Hanon\"}", "memo": "긴급 점검 보상", "title_kr": "긴급 점검 보상", "context_kr": "긴급 점검을 기다려 주셔서 감사합니다. 유저분들께 큰 불편을 드려 죄송합니다."}, {"no": 103, "type": 1, "expire": 7, "title": 1427, "context": 1428, "reward_no": 15003, "reward_count": 1, "subject_text": "{\"ko\": \"긴급 점검 보상\", \"en\": \"Emergency Maintenance Reward\"}", "desc_text": "{\"ko\": \"싱커님/1 안녕하세요./n/n예정에 없던 긴급 점검으로 게임 이용에 불편을 드린 점 진심으로 사과드립니다./n불편을 겪으신 싱커님께 보상을 지급해 드립니다./n/n같은 문제가 반복되지 않도록 노력하겠습니다./n감사합니다.\", \"en\": \"Hello/1 Sinker./n/nWe sincerely apologize for the inconvenience caused by the unscheduled emergency maintenance./nA reward has been sent to you for the trouble you experienced./n/nWe will do our best to prevent the same issue from happening again./nThank you.\"}", "from_text": "{\"ko\": \"GM 하논\", \"en\": \"GM Hanon\"}", "memo": "긴급 점검 보상", "title_kr": "연장 점검 보상", "context_kr": "연장 점검을 기다려 주셔서 감사합니다. 유저분들께 큰 불편을 드려 죄송합니다."}, {"no": 104, "type": 1, "expire": 7, "title": 1451, "context": 1452, "reward_no": 15004, "reward_count": 1, "subject_text": "{\"ko\": \"긴급 점검 보상\", \"en\": \"Emergency Maintenance Reward\"}", "desc_text": "{\"ko\": \"싱커님/1 안녕하세요./n/n장시간 이어진 긴급 점검으로 큰 불편을 드린 점 대단히 죄송합니다./n오랜 시간 기다려 주신 싱커님께 사과의 마음을 담아 보상을 지급해 드립니다./n/n원인 분석과 재발 방지 대책을 마련해 다시 안내드리겠습니다./n감사합니다.\", \"en\": \"Hello/1 Sinker./n/nWe are deeply sorry for the serious inconvenience caused by the extended emergency maintenance./nAs a token of our apology/1 a reward has been sent to you for your long wait./n/nWe will analyze the cause/1 prepare measures to prevent recurrence/1 and inform you again./nThank you.\"}", "from_text": "{\"ko\": \"GM 하논\", \"en\": \"GM Hanon\"}", "memo": "긴급 점검 보상", "title_kr": "긴급 점검 보상", "context_kr": "싱커님/1 안녕하세요./n/n장시간 이어진 긴급 점검으로 큰 불편을 드린 점 대단히 죄송합니다./n오랜 시간 기다려 주신 싱커님께 사과의 마음을 담아 보상을 지급해 드립니다./n/n원인 분석과 재발 방지 대책을 마련해 다시 안내드리겠습니다./n감사합니다."}, {"no": 105, "type": 1, "expire": 7, "title": 1453, "context": 1454, "reward_no": 15005, "reward_count": 1, "subject_text": "{\"ko\": \"긴급 점검 보상\", \"en\": \"Emergency Maintenance Reward\"}", "desc_text": "{\"ko\": \"싱커님/1 안녕하세요./n/n오랜 시간 게임을 이용하지 못하게 만든 점/1 고개 숙여 깊이 사과드립니다./n/n기다려 주신 싱커님께 사과의 마음을 담아 보상을 지급해 드립니다./n/n신뢰를 회복할 수 있도록 인프라 전반을 재점검하겠으며/1 조치 결과는 별도 공지를 통해 상세히 안내드리겠습니다./n다시 한번 깊이 사과드립니다.\", \"en\": \"Hello/1 Sinker./n/nWe bow our heads and deeply apologize for keeping you from playing for such a long time./n/nAs a token of our apology/1 a reward has been sent to you for your patience./n/nTo regain your trust we will review our entire infrastructure/1 and we will share the results in detail through a separate notice./nOnce again/1 we deeply apologize.\"}", "from_text": "{\"ko\": \"GM 하논\", \"en\": \"GM Hanon\"}", "memo": "긴급 점검 보상", "title_kr": "긴급 점검 보상", "context_kr": "싱커님/1 안녕하세요./n/n오랜 시간 게임을 이용하지 못하게 만든 점/1 고개 숙여 깊이 사과드립니다./n/n기다려 주신 싱커님께 사과의 마음을 담아 보상을 지급해 드립니다./n/n신뢰를 회복할 수 있도록 인프라 전반을 재점검하겠으며/1 조치 결과는 별도 공지를 통해 상세히 안내드리겠습니다./n다시 한번 깊이 사과드립니다."}, {"no": 106, "type": 1, "expire": 7, "title": 1453, "context": 1454, "reward_no": 15006, "reward_count": 1, "subject_text": "{\"ko\": \"긴급 점검 보상\", \"en\": \"Emergency Maintenance Reward\"}", "desc_text": "{\"ko\": \"싱커님/1 안녕하세요./n/n오랜 시간 게임을 이용하지 못하게 만든 점/1 고개 숙여 깊이 사과드립니다./n/n기다려 주신 싱커님께 사과의 마음을 담아 보상을 지급해 드립니다./n/n신뢰를 회복할 수 있도록 인프라 전반을 재점검하겠으며/1 조치 결과는 별도 공지를 통해 상세히 안내드리겠습니다./n다시 한번 깊이 사과드립니다.\", \"en\": \"Hello/1 Sinker./n/nWe bow our heads and deeply apologize for keeping you from playing for such a long time./n/nAs a token of our apology/1 a reward has been sent to you for your patience./n/nTo regain your trust we will review our entire infrastructure/1 and we will share the results in detail through a separate notice./nOnce again/1 we deeply apologize.\"}", "from_text": "{\"ko\": \"GM 하논\", \"en\": \"GM Hanon\"}", "memo": "긴급 점검 보상", "title_kr": "긴급 점검 보상", "context_kr": "싱커님/1 안녕하세요./n/n오랜 시간 게임을 이용하지 못하게 만든 점/1 고개 숙여 깊이 사과드립니다./n/n기다려 주신 싱커님께 사과의 마음을 담아 보상을 지급해 드립니다./n/n신뢰를 회복할 수 있도록 인프라 전반을 재점검하겠으며/1 조치 결과는 별도 공지를 통해 상세히 안내드리겠습니다./n다시 한번 깊이 사과드립니다."}, {"no": 107, "type": 1, "expire": 7, "title": 1457, "context": 1458, "reward_no": 0, "reward_count": 0, "subject_text": "{\"ko\": \"긴급 사과 보상\", \"en\": \"Emergency Apology Reward\"}", "desc_text": "{\"ko\": \"긴급 사과 보상\", \"en\": \"Emergency Apology Reward\"}", "from_text": "{\"ko\": \"GM 하논\", \"en\": \"GM Hanon\"}", "memo": "긴급 사과 보상", "title_kr": "긴급 사과 보상", "context_kr": "긴급 사과 보상"}, {"no": 108, "type": 1, "expire": 7, "title": 1459, "context": 1460, "reward_no": 0, "reward_count": 0, "subject_text": "{\"ko\": \"사전 정의되지 않은 안내 메일\", \"en\": \"Undefined Notice Mail\"}", "desc_text": "{\"ko\": \"사전 정의되지 않은 안내 메일\", \"en\": \"Undefined Notice Mail\"}", "from_text": "{\"ko\": \"GM 하논\", \"en\": \"GM Hanon\"}", "memo": "사전 정의되지 않은 안내 메일", "title_kr": "사전 정의되지 않은 안내 메일", "context_kr": "사전 정의되지 않은 안내 메일"}, {"no": 109, "type": 1, "expire": 7, "title": 1455, "context": 1456, "reward_no": 0, "reward_count": 0, "subject_text": "{\"ko\": \"CS 접수에 따른 개별 보상\", \"en\": \"Individual Reward for Customer Support Inquiry\"}", "desc_text": "{\"ko\": \"CS 접수에 따른 개별 보상\", \"en\": \"Individual Reward for Customer Support Inquiry\"}", "from_text": "{\"ko\": \"GM 하논\", \"en\": \"GM Hanon\"}", "memo": "CS 접수에 따른 개별 보상", "title_kr": "CS 접수에 따른 개별 보상", "context_kr": "CS 접수에 따른 개별 보상"}, {"no": 201, "type": 2, "expire": 1, "title": 1429, "context": 1430, "reward_no": 0, "reward_count": 0, "subject_text": "{\"ko\": \"전투력 랭킹 보상\", \"en\": \"Combat Power Ranking Reward\"}", "desc_text": "{\"ko\": \"전투력 랭킹에서 달성한 순위에 따라 보상이 지급 되었습니다.\", \"en\": \"Rewards have been sent according to the rank you achieved in the Combat Power Ranking.\"}", "from_text": "{\"ko\": \"GM 미후\", \"en\": \"GM Mihu\"}", "memo": "전투력 랭킹 보상", "title_kr": "레벨 랭킹 보상", "context_kr": "레벨 랭킹에서 달성한 순위에 따라 보상이 지급되었습니다."}, {"no": 202, "type": 2, "expire": 1, "title": 1431, "context": 1432, "reward_no": 0, "reward_count": 0, "subject_text": "{\"ko\": \"스테이지 랭킹 보상\", \"en\": \"Stage Ranking Reward\"}", "desc_text": "{\"ko\": \"스테이지 랭킹에서 달성한 순위에 따라 보상이 지급 되었습니다.\", \"en\": \"Rewards have been sent according to the rank you achieved in the Stage Ranking.\"}", "from_text": "{\"ko\": \"GM 미후\", \"en\": \"GM Mihu\"}", "memo": "스테이지 랭킹 보상", "title_kr": "전투력 랭킹 보상", "context_kr": "전투력 랭킹에서 달성한 순위에 따라 보상이 지급되었습니다."}, {"no": 203, "type": 2, "expire": 1, "title": 1433, "context": 1434, "reward_no": 0, "reward_count": 0, "subject_text": "{\"ko\": \"모듈 부품 던전 랭킹 보상\", \"en\": \"Module Parts Dungeon Ranking Reward\"}", "desc_text": "{\"ko\": \"모듈 부품 던전 랭킹에서 달성한 순위에 따라 보상이 지급 되었습니다.\", \"en\": \"Rewards have been sent according to the rank you achieved in the Module Parts Dungeon Ranking.\"}", "from_text": "{\"ko\": \"GM 미후\", \"en\": \"GM Mihu\"}", "memo": "모듈 부품 던전 랭킹 보상", "title_kr": "챕터 진행 랭킹 보상", "context_kr": "챕터 진행 랭킹에서 달성한 순위에 따라 보상이 지급되었습니다."}, {"no": 204, "type": 2, "expire": 1, "title": 1435, "context": 1436, "reward_no": 0, "reward_count": 0, "subject_text": "{\"ko\": \"소환 던전 랭킹 보상\", \"en\": \"Summon Dungeon Ranking Reward\"}", "desc_text": "{\"ko\": \"소환 던전 랭킹에서 달성한 순위에 따라 보상이 지급 되었습니다.\", \"en\": \"Rewards have been sent according to the rank you achieved in the Summon Dungeon Ranking.\"}", "from_text": "{\"ko\": \"GM 미후\", \"en\": \"GM Mihu\"}", "memo": "소환 던전 랭킹 보상", "title_kr": "모듈 칩 던전 랭킹 보상", "context_kr": "모듈 칩 던전 랭킹에서 달성한 순위에 따라 보상이 지급되었습니다."}, {"no": 205, "type": 2, "expire": 1, "title": 1437, "context": 1438, "reward_no": 0, "reward_count": 0, "subject_text": "{\"ko\": \"통제 본부 던전 랭킹 보상\", \"en\": \"Control Center Dungeon Ranking Reward\"}", "desc_text": "{\"ko\": \"통제 본부 던전 랭킹에서 달성한 순위에 따라 보상이 지급 되었습니다.\", \"en\": \"Rewards have been sent according to the rank you achieved in the Control Center Dungeon Ranking.\"}", "from_text": "{\"ko\": \"GM 미후\", \"en\": \"GM Mihu\"}", "memo": "통제 본부 던전 랭킹 보상", "title_kr": "소환 던전 랭킹 보상", "context_kr": "소환 던전 랭킹에서 달성한 순위에 따라 보상이 지급되었습니다."}, {"no": 206, "type": 2, "expire": 1, "title": 1439, "context": 1440, "reward_no": 0, "reward_count": 0, "subject_text": "{\"ko\": \"개발 센터 던전 랭킹 보상\", \"en\": \"Development Center Dungeon Ranking Reward\"}", "desc_text": "{\"ko\": \"개발 센터 던전 랭킹에서 달성한 순위에 따라 보상이 지급 되었습니다.\", \"en\": \"Rewards have been sent according to the rank you achieved in the Development Center Dungeon Ranking.\"}", "from_text": "{\"ko\": \"GM 미후\", \"en\": \"GM Mihu\"}", "memo": "개발 센터 던전 랭킹 보상", "title_kr": "통제 본부 던전 랭킹 보상", "context_kr": "통제 본부 던전 랭킹에서 달성한 순위에 따라 보상이 지급되었습니다."}, {"no": 207, "type": 2, "expire": 1, "title": 1441, "context": 1442, "reward_no": 0, "reward_count": 0, "subject_text": "{\"ko\": \"연구소 던전 랭킹 보상\", \"en\": \"Laboratory Dungeon Ranking Reward\"}", "desc_text": "{\"ko\": \"연구소 던전 랭킹에서 달성한 순위에 따라 보상이 지급 되었습니다.\", \"en\": \"Rewards have been sent according to the rank you achieved in the Laboratory Dungeon Ranking.\"}", "from_text": "{\"ko\": \"GM 미후\", \"en\": \"GM Mihu\"}", "memo": "연구소 던전 랭킹 보상", "title_kr": "개발 센터 던전 랭킹 보상", "context_kr": "개발 센터 던전 랭킹에서 달성한 순위에 따라 보상이 지급되었습니다."}, {"no": 208, "type": 2, "expire": 1, "title": 1443, "context": 1444, "reward_no": 0, "reward_count": 0, "subject_text": "{\"ko\": \"월드 레이드 랭킹\", \"en\": \"World Raid Ranking\"}", "desc_text": "{\"ko\": \"월드 레이드 랭킹에서 달성한 순위에 따라 보상이 지급 되었습니다.\", \"en\": \"Rewards have been sent according to the rank you achieved in the World Raid Ranking.\"}", "from_text": "{\"ko\": \"GM 미후\", \"en\": \"GM Mihu\"}", "memo": "월드 레이드 랭킹", "title_kr": "연구소 던전 랭킹 보상", "context_kr": "연구소 던전 랭킹에서 달성한 순위에 따라 보상이 지급되었습니다."}, {"no": 209, "type": 2, "expire": 1, "title": 1461, "context": 1462, "reward_no": 0, "reward_count": 0, "subject_text": "{\"ko\": \"컴퍼니 레이드 (월) 랭킹\", \"en\": \"Company Raid (Mon) Ranking\"}", "desc_text": "{\"ko\": \"컴퍼니 레이드 (월) 랭킹에서 달성한 순위에 따라 보상이 지급 되었습니다.\", \"en\": \"Rewards have been sent according to the rank you achieved in the Company Raid (Mon) Ranking.\"}", "from_text": "{\"ko\": \"GM 미후\", \"en\": \"GM Mihu\"}", "memo": "컴퍼니 레이드 (월) 랭킹", "title_kr": "컴퍼니 레이드 (월) 랭킹", "context_kr": "컴퍼니 레이드 (월) 랭킹에서 달성한 순위에 따라 보상이 지급되었습니다."}, {"no": 210, "type": 2, "expire": 1, "title": 1463, "context": 1464, "reward_no": 0, "reward_count": 0, "subject_text": "{\"ko\": \"컴퍼니 레이드 (화) 랭킹\", \"en\": \"Company Raid (Tue) Ranking\"}", "desc_text": "{\"ko\": \"컴퍼니 레이드 (화) 랭킹에서 달성한 순위에 따라 보상이 지급 되었습니다.\", \"en\": \"Rewards have been sent according to the rank you achieved in the Company Raid (Tue) Ranking.\"}", "from_text": "{\"ko\": \"GM 미후\", \"en\": \"GM Mihu\"}", "memo": "컴퍼니 레이드 (화) 랭킹", "title_kr": "컴퍼니 레이드 (화) 랭킹", "context_kr": "컴퍼니 레이드 (화) 랭킹에서 달성한 순위에 따라 보상이 지급되었습니다."}, {"no": 211, "type": 2, "expire": 1, "title": 1465, "context": 1466, "reward_no": 0, "reward_count": 0, "subject_text": "{\"ko\": \"컴퍼니 레이드 (수) 랭킹\", \"en\": \"Company Raid (Wed) Ranking\"}", "desc_text": "{\"ko\": \"컴퍼니 레이드 (수) 랭킹에서 달성한 순위에 따라 보상이 지급 되었습니다.\", \"en\": \"Rewards have been sent according to the rank you achieved in the Company Raid (Wed) Ranking.\"}", "from_text": "{\"ko\": \"GM 미후\", \"en\": \"GM Mihu\"}", "memo": "컴퍼니 레이드 (수) 랭킹", "title_kr": "컴퍼니 레이드 (수) 랭킹", "context_kr": "컴퍼니 레이드 (수) 랭킹에서 달성한 순위에 따라 보상이 지급되었습니다."}, {"no": 212, "type": 2, "expire": 1, "title": 1467, "context": 1468, "reward_no": 0, "reward_count": 0, "subject_text": "{\"ko\": \"컴퍼니 레이드 (목) 랭킹\", \"en\": \"Company Raid (Thu) Ranking\"}", "desc_text": "{\"ko\": \"컴퍼니 레이드 (목) 랭킹에서 달성한 순위에 따라 보상이 지급 되었습니다.\", \"en\": \"Rewards have been sent according to the rank you achieved in the Company Raid (Thu) Ranking.\"}", "from_text": "{\"ko\": \"GM 미후\", \"en\": \"GM Mihu\"}", "memo": "컴퍼니 레이드 (목) 랭킹", "title_kr": "컴퍼니 레이드 (목) 랭킹", "context_kr": "컴퍼니 레이드 (목) 랭킹에서 달성한 순위에 따라 보상이 지급되었습니다."}, {"no": 213, "type": 2, "expire": 1, "title": 1469, "context": 1470, "reward_no": 0, "reward_count": 0, "subject_text": "{\"ko\": \"컴퍼니 레이드 (금) 랭킹\", \"en\": \"Company Raid (Fri) Ranking\"}", "desc_text": "{\"ko\": \"컴퍼니 레이드 (금) 랭킹에서 달성한 순위에 따라 보상이 지급 되었습니다.\", \"en\": \"Rewards have been sent according to the rank you achieved in the Company Raid (Fri) Ranking.\"}", "from_text": "{\"ko\": \"GM 미후\", \"en\": \"GM Mihu\"}", "memo": "컴퍼니 레이드 (금) 랭킹", "title_kr": "컴퍼니 레이드 (금) 랭킹", "context_kr": "컴퍼니 레이드 (금) 랭킹에서 달성한 순위에 따라 보상이 지급되었습니다."}, {"no": 214, "type": 2, "expire": 1, "title": 1471, "context": 1472, "reward_no": 0, "reward_count": 0, "subject_text": "{\"ko\": \"컴퍼니 레이드 (주간) 랭킹\", \"en\": \"Company Raid (Weekly) Ranking\"}", "desc_text": "{\"ko\": \"컴퍼니 레이드 (주간) 랭킹에서 달성한 순위에 따라 보상이 지급 되었습니다.\", \"en\": \"Rewards have been sent according to the rank you achieved in the Company Raid (Weekly) Ranking.\"}", "from_text": "{\"ko\": \"GM 미후\", \"en\": \"GM Mihu\"}", "memo": "컴퍼니 레이드 (주간) 랭킹", "title_kr": "컴퍼니 레이드 (주간) 랭킹", "context_kr": "컴퍼니 레이드 (주간) 랭킹에서 달성한 순위에 따라 보상이 지급되었습니다."}, {"no": 301, "type": 3, "expire": 1, "title": 1445, "context": 1446, "reward_no": 3, "reward_count": 10, "subject_text": "{\"ko\": \"점심 접속 보상\", \"en\": \"Lunch Login Reward\"}", "desc_text": "{\"ko\": \"싱커 님을 위해 점심 지원품을 준비했습니다.\", \"en\": \"We have prepared a lunch support package for you/1 Sinker.\"}", "from_text": "{\"ko\": \"GM 유카\", \"en\": \"GM Yuka\"}", "memo": "점심 핫 타임 보상", "title_kr": "점심 접속 보상", "context_kr": "싱커님을 위해 점심 지원품을 준비했습니다."}, {"no": 302, "type": 3, "expire": 1, "title": 1447, "context": 1448, "reward_no": 3, "reward_count": 10, "subject_text": "{\"ko\": \"저녁 접속 보상\", \"en\": \"Dinner Login Reward\"}", "desc_text": "{\"ko\": \"싱커 님을 위해 저녁 지원품을 준비했습니다.\", \"en\": \"We have prepared a dinner support package for you/1 Sinker.\"}", "from_text": "{\"ko\": \"GM 유카\", \"en\": \"GM Yuka\"}", "memo": "저녁 핫타임 보상", "title_kr": "저녁 접속 보상", "context_kr": "싱커님을 위해 저녁 지원품을 준비했습니다."}, {"no": 401, "type": 4, "expire": 1, "title": 1449, "context": 1450, "reward_no": 0, "reward_count": 0, "subject_text": "{\"ko\": \"아이템 보유 상한을 초과했습니다.\", \"en\": \"Item Storage Limit Exceeded\"}", "desc_text": "{\"ko\": \"해당 아이템의 보유 상한을 초과하여 우편으로 지급됩니다.\", \"en\": \"This item exceeded your storage limit/1 so it has been sent to your mailbox.\"}", "from_text": "{\"ko\": \"GM 레테\", \"en\": \"GM Lethe\"}", "memo": "아이템 보유 한도 초과", "title_kr": "아이템 보유 상한을 초과했습니다.", "context_kr": "해당 아이템의 보유 상한을 초과하여 우편으로 지급됩니다."}], "strings": {"1473": {"kr": "정기 정검 보상", "en": "Scheduled Maintenance Compensation"}, "1424": {"kr": "정기 점검을 기다려 주셔서 감사합니다. 유저분들께 큰 불편을 드려 죄송합니다.", "en": "Thank you for waiting through the scheduled maintenance. We apologize for the major inconvenience."}, "1425": {"kr": "긴급 점검 보상", "en": "Emergency Maintenance Reward"}, "1426": {"kr": "긴급 점검을 기다려 주셔서 감사합니다. 유저분들께 큰 불편을 드려 죄송합니다.", "en": "Thank you for waiting through the emergency maintenance. We apologize for the major inconvenience."}, "1427": {"kr": "연장 점검 보상", "en": "Extended Maintenance Reward"}, "1428": {"kr": "연장 점검을 기다려 주셔서 감사합니다. 유저분들께 큰 불편을 드려 죄송합니다.", "en": "Thank you for waiting through the extended maintenance. We apologize for the major inconvenience."}, "1451": {"kr": "긴급 점검 보상", "en": "Emergency Maintenance Reward"}, "1452": {"kr": "싱커님/1 안녕하세요./n/n장시간 이어진 긴급 점검으로 큰 불편을 드린 점 대단히 죄송합니다./n오랜 시간 기다려 주신 싱커님께 사과의 마음을 담아 보상을 지급해 드립니다./n/n원인 분석과 재발 방지 대책을 마련해 다시 안내드리겠습니다./n감사합니다.", "en": "Hello/1 Syncher./n/nWe are deeply sorry for the serious inconvenience caused by the extended emergency maintenance./nAs a token of our apology/1 a reward has been sent to you for your long wait./n/nWe will analyze the cause/1 prepare measures to prevent recurrence/1 and inform you again./nThank you."}, "1453": {"kr": "긴급 점검 보상", "en": "Emergency Maintenance Reward"}, "1454": {"kr": "싱커님/1 안녕하세요./n/n오랜 시간 게임을 이용하지 못하게 만든 점/1 고개 숙여 깊이 사과드립니다./n/n기다려 주신 싱커님께 사과의 마음을 담아 보상을 지급해 드립니다./n/n신뢰를 회복할 수 있도록 인프라 전반을 재점검하겠으며/1 조치 결과는 별도 공지를 통해 상세히 안내드리겠습니다./n다시 한번 깊이 사과드립니다.", "en": "Hello/1 Syncher./n/nWe bow our heads and deeply apologize for keeping you from playing for such a long time./n/nAs a token of our apology/1 a reward has been sent to you for your patience./n/nTo regain your trust we will review our entire infrastructure/1 and we will share the results in detail through a separate notice./nOnce again/1 we deeply apologize."}, "1457": {"kr": "긴급 사과 보상", "en": "Emergency Apology Reward"}, "1458": {"kr": "긴급 사과 보상", "en": "Emergency Apology Reward"}, "1459": {"kr": "사전 정의되지 않은 안내 메일", "en": "Undefined Notice Mail"}, "1460": {"kr": "사전 정의되지 않은 안내 메일", "en": "Undefined Notice Mail"}, "1455": {"kr": "CS 접수에 따른 개별 보상", "en": "Individual Reward for Customer Support Inquiry"}, "1456": {"kr": "CS 접수에 따른 개별 보상", "en": "Individual Reward for Customer Support Inquiry"}, "1429": {"kr": "레벨 랭킹 보상", "en": "Level Ranking Reward"}, "1430": {"kr": "레벨 랭킹에서 달성한 순위에 따라 보상이 지급되었습니다.", "en": "Rewards have been granted based on your Level Ranking placement."}, "1431": {"kr": "전투력 랭킹 보상", "en": "Combat Power Ranking Reward"}, "1432": {"kr": "전투력 랭킹에서 달성한 순위에 따라 보상이 지급되었습니다.", "en": "Rewards have been granted based on your Combat Power Ranking placement."}, "1433": {"kr": "챕터 진행 랭킹 보상", "en": "Chapter Progress Ranking Reward"}, "1434": {"kr": "챕터 진행 랭킹에서 달성한 순위에 따라 보상이 지급되었습니다.", "en": "Rewards have been granted based on your Chapter Progress Ranking placement."}, "1435": {"kr": "모듈 칩 던전 랭킹 보상", "en": "Module Chip Dungeon Ranking Reward"}, "1436": {"kr": "모듈 칩 던전 랭킹에서 달성한 순위에 따라 보상이 지급되었습니다.", "en": "Rewards have been granted based on your Module Chip Dungeon Ranking placement."}, "1437": {"kr": "소환 던전 랭킹 보상", "en": "Summon Dungeon Ranking Reward"}, "1438": {"kr": "소환 던전 랭킹에서 달성한 순위에 따라 보상이 지급되었습니다.", "en": "Rewards have been granted based on your Summon Dungeon Ranking placement."}, "1439": {"kr": "통제 본부 던전 랭킹 보상", "en": "Control HQ Dungeon Ranking Reward"}, "1440": {"kr": "통제 본부 던전 랭킹에서 달성한 순위에 따라 보상이 지급되었습니다.", "en": "Rewards have been granted based on your Control HQ Dungeon Ranking placement."}, "1441": {"kr": "개발 센터 던전 랭킹 보상", "en": "Dev Center Dungeon Ranking Reward"}, "1442": {"kr": "개발 센터 던전 랭킹에서 달성한 순위에 따라 보상이 지급되었습니다.", "en": "Rewards have been granted based on your Dev Center Dungeon Ranking placement."}, "1443": {"kr": "연구소 던전 랭킹 보상", "en": "Lab Dungeon Ranking Reward"}, "1444": {"kr": "연구소 던전 랭킹에서 달성한 순위에 따라 보상이 지급되었습니다.", "en": "Rewards have been granted based on your Lab Dungeon Ranking placement."}, "1461": {"kr": "컴퍼니 레이드 (월) 랭킹", "en": "Company Raid (Mon) Ranking"}, "1462": {"kr": "컴퍼니 레이드 (월) 랭킹에서 달성한 순위에 따라 보상이 지급되었습니다.", "en": "Rewards have been sent according to the rank you achieved in the Company Raid (Mon) Ranking."}, "1463": {"kr": "컴퍼니 레이드 (화) 랭킹", "en": "Company Raid (Tue) Ranking"}, "1464": {"kr": "컴퍼니 레이드 (화) 랭킹에서 달성한 순위에 따라 보상이 지급되었습니다.", "en": "Rewards have been sent according to the rank you achieved in the Company Raid (Tue) Ranking."}, "1465": {"kr": "컴퍼니 레이드 (수) 랭킹", "en": "Company Raid (Wed) Ranking"}, "1466": {"kr": "컴퍼니 레이드 (수) 랭킹에서 달성한 순위에 따라 보상이 지급되었습니다.", "en": "Rewards have been sent according to the rank you achieved in the Company Raid (Wed) Ranking."}, "1467": {"kr": "컴퍼니 레이드 (목) 랭킹", "en": "Company Raid (Thu) Ranking"}, "1468": {"kr": "컴퍼니 레이드 (목) 랭킹에서 달성한 순위에 따라 보상이 지급되었습니다.", "en": "Rewards have been sent according to the rank you achieved in the Company Raid (Thu) Ranking."}, "1469": {"kr": "컴퍼니 레이드 (금) 랭킹", "en": "Company Raid (Fri) Ranking"}, "1470": {"kr": "컴퍼니 레이드 (금) 랭킹에서 달성한 순위에 따라 보상이 지급되었습니다.", "en": "Rewards have been sent according to the rank you achieved in the Company Raid (Fri) Ranking."}, "1471": {"kr": "컴퍼니 레이드 (주간) 랭킹", "en": "Company Raid (Weekly) Ranking"}, "1472": {"kr": "컴퍼니 레이드 (주간) 랭킹에서 달성한 순위에 따라 보상이 지급되었습니다.", "en": "Rewards have been sent according to the rank you achieved in the Company Raid (Weekly) Ranking."}, "1445": {"kr": "점심 접속 보상", "en": "Lunch Login Reward"}, "1446": {"kr": "싱커님을 위해 점심 지원품을 준비했습니다.", "en": "We/3ve prepared a lunch care package for you/1 Syncher."}, "1447": {"kr": "저녁 접속 보상", "en": "Dinner Login Reward"}, "1448": {"kr": "싱커님을 위해 저녁 지원품을 준비했습니다.", "en": "We/3ve prepared a dinner care package for you/1 Syncher."}, "1449": {"kr": "아이템 보유 상한을 초과했습니다.", "en": "You/3ve exceeded the item hold limit."}, "1450": {"kr": "해당 아이템의 보유 상한을 초과하여 우편으로 지급됩니다.", "en": "You/3ve exceeded the hold limit for this item/1 so it/3s being sent by mail."}, "1400": {"kr": "메일 관련 스트링 --------------", "en": "번역 불필요"}, "1401": {"kr": "우편함", "en": "Mailbox"}, "1402": {"kr": "남은 기간 :{0}일", "en": "Time left: {0}d"}, "1403": {"kr": "읽지 않음 : {0}", "en": "Unread: {0}"}, "1404": {"kr": "읽은 우편 삭제", "en": "Delete Read Mail"}, "1405": {"kr": "받은 우편이 없습니다.", "en": "You have no mail."}, "1406": {"kr": "From : {0}", "en": "From: {0}"}, "1407": {"kr": "Date : {0}", "en": "Date: {0}"}, "1408": {"kr": "우편 삭제까지 남은 기간: {0}일 {1} 시간", "en": "Deleted in: {0}d {1}h"}, "1409": {"kr": "보유 상한을 초과한 아이템을 우편으로 발송했습니다.", "en": "Items exceeding the storage limit have been sent to your Mailbox."}, "1410": {"kr": "보유 상한을 초과한 아이템이 포함되어 있습니다.", "en": "Contains items that exceed the storage limit."}, "1411": {"kr": "수령 불가", "en": "Cannot Claim"}, "1412": {"kr": "수량 초과", "en": "Limit Exceeded"}, "1420": {"kr": "시스템 메일", "en": "System Mail"}, "1421": {"kr": "랭킹 보상 메일", "en": "Ranking Reward Mail"}, "1422": {"kr": "핫 타임 보상 메일", "en": "Hot Time Reward Mail"}, "1423": {"kr": "보상 획득", "en": "Reward Obtained"}}, "grades": {"1": "일반", "2": "고급", "3": "희귀", "4": "영웅", "5": "전설", "6": "신화", "7": "고대", "8": "초월", "9": "궁극", "10": "절대", "11": "S 일반", "12": "S 고급", "13": "S 희귀", "14": "S 영웅", "15": "S 전설", "16": "S 신화", "17": "S 고대", "18": "S 초월", "19": "S 궁극", "20": "S 절대"}, "types": {"1": "재화", "2": "입장권", "3": "상자", "4": "모듈", "99": "기타"}, "subs": {"0": "", "1": "디펜더", "2": "스트라이커", "3": "레인저", "4": "에이전트", "10": "확률상자", "11": "확정상자"}, "boxes": {"11000": [[4, 10, 10], [5, 10, 10], [6, 10, 10], [2, 5000, 5000]], "11001": [[4, 20, 20], [5, 20, 20], [6, 20, 20], [2, 10000, 10000]], "11002": [[4, 60, 60], [5, 60, 60], [6, 60, 60], [2, 30000, 30000]], "11003": [[4, 100, 100], [5, 100, 100], [6, 100, 100], [2, 50000, 50000]], "11004": [[4, 200, 200], [5, 200, 200], [6, 200, 200], [2, 100000, 100000]], "11005": [[4, 30, 30], [2, 10000, 10000]], "11006": [[5, 90, 90], [2, 10000, 10000]], "11007": [[6, 90, 90], [2, 10000, 10000]], "11008": [[31, 10, 10], [32, 10, 10], [33, 10, 10], [34, 10, 10], [35, 10, 10], [2, 5000, 5000]], "11009": [[31, 20, 20], [32, 20, 20], [33, 20, 20], [34, 20, 20], [35, 20, 20], [2, 10000, 10000]], "11010": [[31, 60, 60], [32, 60, 60], [33, 60, 60], [34, 60, 60], [35, 60, 60], [2, 30000, 30000]], "11011": [[111, 100, 100], [121, 100, 100], [141, 1000, 1000], [142, 1000, 1000], [143, 1000, 1000], [2, 5000, 5000]], "11012": [[111, 200, 200], [121, 200, 200], [141, 2000, 2000], [142, 2000, 2000], [143, 2000, 2000], [2, 10000, 10000]], "11013": [[111, 600, 600], [121, 600, 600], [141, 6000, 6000], [142, 6000, 6000], [143, 6000, 6000], [2, 30000, 30000]], "11014": [[31, 25, 25], [3, 30000, 30000], [2, 5000, 5000]], "11015": [[32, 25, 25], [5, 5, 5], [6, 5, 5], [2, 5000, 5000]], "11016": [[33, 25, 25], [101, 100, 100], [2, 5000, 5000]], "11017": [[34, 25, 25], [102, 100, 100], [2, 5000, 5000]], "11018": [[35, 25, 25], [103, 100, 100], [2, 5000, 5000]], "11019": [[20, 25, 25], [111, 100, 100], [2, 5000, 5000]], "11020": [[111, 140, 140], [121, 140, 140], [141, 1400, 1400], [142, 1400, 1400], [143, 1400, 1400], [2, 10000, 10000]], "11021": [[111, 300, 300], [2, 5000, 5000]], "11022": [[121, 300, 300], [2, 5000, 5000]], "11023": [[141, 3000, 3000], [2, 5000, 5000]], "11024": [[142, 3000, 3000], [2, 5000, 5000]], "11025": [[143, 3000, 3000], [2, 5000, 5000]], "11026": [[4, 12, 12], [5, 12, 12], [6, 12, 12], [2, 5000, 5000]], "11027": [[4, 25, 25], [5, 25, 25], [6, 25, 25], [2, 10000, 10000]], "11028": [[4, 80, 80], [5, 80, 80], [6, 80, 80], [2, 30000, 30000]], "11029": [[31, 12, 12], [32, 12, 12], [33, 12, 12], [34, 12, 12], [35, 12, 12], [2, 5000, 5000]], "11030": [[31, 25, 25], [32, 25, 25], [33, 25, 25], [34, 25, 25], [35, 25, 25], [2, 10000, 10000]], "11031": [[31, 80, 80], [32, 80, 80], [33, 80, 80], [34, 80, 80], [35, 80, 80], [2, 30000, 30000]], "11032": [[111, 120, 120], [121, 120, 120], [141, 1200, 1200], [142, 1200, 1200], [143, 1200, 1200], [2, 5000, 5000]], "11033": [[111, 250, 250], [121, 250, 250], [141, 2500, 2500], [142, 2500, 2500], [143, 2500, 2500], [2, 10000, 10000]], "11034": [[111, 800, 800], [121, 800, 800], [141, 8000, 8000], [142, 8000, 8000], [143, 8000, 8000], [2, 30000, 30000]], "12001": [[4, 2, 2], [5, 6, 6], [6, 6, 6], [1, 100, 100]], "12002": [[4, 6, 6], [5, 18, 18], [6, 18, 18], [1, 300, 300]], "12003": [[4, 6, 6], [5, 18, 18], [6, 18, 18], [1, 300, 300]], "12004": [[4, 10, 10], [5, 30, 30], [6, 30, 30], [1, 500, 500]], "13001": [[2, 3000, 3000]], "13002": [[2, 10000, 10000]], "140001": [[4, 10, 10], [5, 30, 30], [6, 30, 30], [2, 5000, 5000]], "140002": [[4, 20, 20], [5, 60, 60], [6, 60, 60], [2, 10000, 10000]], "140003": [[4, 60, 60], [5, 180, 180], [6, 180, 180], [2, 30000, 30000]], "140004": [[4, 100, 100], [5, 300, 300], [6, 300, 300], [2, 50000, 50000]], "140005": [[4, 200, 200], [5, 600, 600], [6, 600, 600], [2, 100000, 100000]], "140101": [[4, 30, 30], [2, 5000, 5000]], "140102": [[4, 60, 60], [2, 10000, 10000]], "140103": [[4, 180, 180], [2, 30000, 30000]], "140104": [[4, 300, 300], [2, 50000, 50000]], "140105": [[4, 600, 600], [2, 100000, 100000]], "140201": [[5, 90, 90], [2, 5000, 5000]], "140202": [[5, 180, 180], [2, 10000, 10000]], "140203": [[5, 540, 540], [2, 30000, 30000]], "140204": [[5, 900, 900], [2, 50000, 50000]], "140205": [[5, 1800, 1800], [2, 100000, 100000]], "140301": [[6, 90, 90], [2, 5000, 5000]], "140302": [[6, 180, 180], [2, 10000, 10000]], "140303": [[6, 540, 540], [2, 30000, 30000]], "140304": [[6, 900, 900], [2, 50000, 50000]], "140305": [[6, 1800, 1800], [2, 100000, 100000]], "140401": [[111, 150, 150], [121, 150, 150], [131, 600, 600], [132, 600, 600], [133, 600, 600], [134, 600, 600], [2, 3000, 3000]], "140402": [[111, 250, 250], [121, 250, 250], [131, 1000, 1000], [132, 1000, 1000], [133, 1000, 1000], [134, 1000, 1000], [2, 5000, 5000]], "140403": [[111, 500, 500], [121, 500, 500], [131, 2000, 2000], [132, 2000, 2000], [133, 2000, 2000], [134, 2000, 2000], [2, 10000, 10000]], "140404": [[111, 1500, 1500], [121, 1500, 1500], [131, 6000, 6000], [132, 6000, 6000], [133, 6000, 6000], [134, 6000, 6000], [2, 30000, 30000]], "140405": [[111, 2500, 2500], [121, 2500, 2500], [131, 10000, 10000], [132, 10000, 10000], [133, 10000, 10000], [134, 10000, 10000], [2, 50000, 50000]], "14001": [[2, 3000, 3000]], "14002": [[2, 10000, 10000]], "15001": [[2, 1000, 1000], [3, 1000, 1000], [4, 5, 5], [5, 15, 15], [6, 15, 15]], "15002": [[2, 500, 500], [3, 500, 500], [4, 3, 3], [5, 9, 9], [6, 9, 9]], "15003": [[2, 1000, 1000], [3, 1000, 1000], [4, 5, 5], [5, 15, 15], [6, 15, 15]], "15004": [[2, 2000, 2000], [3, 2000, 2000], [4, 10, 10], [5, 30, 30], [6, 30, 30]], "15005": [[2, 3000, 3000], [3, 3000, 3000], [4, 15, 15], [5, 45, 45], [6, 45, 45]], "15006": [[2, 4000, 4000], [3, 4000, 4000], [4, 20, 20], [5, 60, 60], [6, 60, 60]]}};</script>
+<script>
+/* ==========================================================
+   데이터 인덱스
+   ========================================================== */
+const ITEMS = DATA.items.filter(i => i.type !== 99);
+const ITEM_MAP = Object.fromEntries(DATA.items.map(i => [i.no, i]));
+const MAILS = DATA.mails;
+const MAIL_MAP = Object.fromEntries(MAILS.map(m => [m.no, m]));
+const STR = DATA.strings;
+const BOXES = DATA.boxes || {};
+const GRADES = DATA.grades || {};
+const TYPE_NAMES = {1:'재화',2:'입장권',3:'상자',4:'모듈'};
+const MAIL_TYPE_NAMES = {1:'운영/점검',2:'랭킹 보상',3:'접속 보상',4:'시스템'};
+const FROM_PRESETS = [
+  {ko:'아가타 키우기 운영팀',en:'AgathaIdle Operations Team'},{ko:'김피디',en:'PD Kim'},
+  {ko:'GM 하논',en:'GM Hanon'},{ko:'GM 미후',en:'GM Mihu'},{ko:'GM 유카',en:'GM Yuka'},{ko:'GM 레테',en:'GM Lethe'}
+];
+const QUICK_ITEMS = [1,2,3,4,5,6,31,32,33,34,35,15001];
+const GRADE_COLORS = {1:'#9AA3B2',2:'#4CAF6E',3:'#3B82F6',4:'#8B5CF6',5:'#F59E0B',6:'#EF4444',7:'#14B8A6',8:'#EC4899',9:'#A3E635',10:'#FBBF24'};
+const KNOWN_KEYS = new Set(['login_date','begin_date','end_date','onetime_key','send_time','mail_no','title','context','expire','subject_text','desc_text','from_text','mail_items','target_uids','delivery']);
+const STORAGE_KEY = 'agatha_mail_tool_v1';
+const T_DAILY = 1, T_ONCE = 2, T_TIME = 10000, T_DIRECT = 'direct';
+const TYPE_CLASS = {direct:'t3', 1:'t1', 2:'t2', 10000:'t3'};
+const TYPE_SHORT = {direct:'즉시 발송', 1:'접속 매일', 2:'접속 1회', 10000:'정한 시각'};
+const SHEET_COLS = ['발송 결정일','구분','제목','발신인','본문','보상','발송','대상 유저 UID','json'];
+const TYPE_LABEL = {direct:'즉시 발송 (POST 요청 시)', 1:'type 1 (접속하면 매일)', 2:'type 2 (접속하면 한 번만)', 10000:'type 10000 (정한 시각에 모두에게)'};
+const TYPE_PLAIN = {
+  direct: '<b>즉시 발송</b> — POST 요청 시 모든 유저의 우편함에 바로 지급합니다. request JSON 내려받기 또는 POST 전송을 사용하세요. 선택만으로 전송되지는 않습니다.',
+  1: '<b>접속하면 매일</b> — 정한 날짜(기간)에 게임에 들어온 사람에게, 들어온 날마다 한 통씩 줍니다. 안 들어온 날은 못 받습니다. 한 번만 줄 보상은 여기에 넣지 마세요.',
+  2: '<b>접속하면 한 번만</b> — 정한 기간 안에 게임에 들어온 사람에게 딱 한 통만 줍니다. 아래 "우편 이름표"로 이미 받았는지 확인하니, 이름표는 항상 새로 만드세요.',
+  10000: '<b>정한 시각에 모두에게</b> — 기간 동안 매일, 정한 시각에 모든 유저에게 갑니다. 게임에 안 들어와도 받습니다. 기간을 잘못 잡으면 전체 유저에게 그대로 나가니 날짜를 두 번 확인하세요.'
+};
+
+/* ==========================================================
+   메일 템플릿 (정기 점검 / 긴급 점검 / 김피디가 쏜다 / 커스텀)
+   ========================================================== */
+const OPS_FROM = {ko:'아가타 키우기 운영팀', en:'AgathaIdle Operations Team'};
+const KIMPD_FROM = {ko:'김피디', en:'PD Kim'};
+const TPL_NAMES = {regular:'정기 점검 메일', emergency:'긴급 점검 메일', kimpd:'김피디가 쏜다', custom:'커스텀'};
+// 긴급 점검: 점검 시간별 서식(Mail.xlsx 102~106) · 보상(ItemBox 15002~15006 구성)
+const EMERGENCY = {
+  1: { mail_no:102, title:1425, context:1426, box:15002, items:[[2,500],[3,500],[4,3],[5,9],[6,9]],
+       ko:'싱커님, 안녕하세요.\n\n긴급 점검으로 게임 이용에 불편을 드려 죄송합니다.\n기다려 주신 싱커님께 보상을 지급해 드립니다.\n\n보다 안정적인 서비스를 제공하기 위해 노력하겠습니다.\n감사합니다.',
+       en:'Hello, Syncer.\n\nWe apologize for the inconvenience caused by the emergency maintenance.\nA reward has been sent to you for your patience.\n\nWe will keep working to provide a more stable service.\nThank you.' },
+  2: { mail_no:103, title:1427, context:1428, box:15003, items:[[2,1000],[3,1000],[4,5],[5,15],[6,15]],
+       ko:'싱커님, 안녕하세요.\n\n예정에 없던 긴급 점검으로 게임 이용에 불편을 드린 점 진심으로 사과드립니다.\n불편을 겪으신 싱커님께 보상을 지급해 드립니다.\n\n같은 문제가 반복되지 않도록 노력하겠습니다.\n감사합니다.',
+       en:'Hello, Syncer.\n\nWe sincerely apologize for the inconvenience caused by the unscheduled emergency maintenance.\nA reward has been sent to you for the trouble you experienced.\n\nWe will do our best to prevent the same issue from happening again.\nThank you.' },
+  4: { mail_no:104, title:1451, context:1452, box:15004, items:[[2,2000],[3,2000],[4,10],[5,30],[6,30]],
+       ko:'싱커님, 안녕하세요.\n\n장시간 이어진 긴급 점검으로 큰 불편을 드린 점 대단히 죄송합니다.\n오랜 시간 기다려 주신 싱커님께 사과의 마음을 담아 보상을 지급해 드립니다.\n\n원인 분석과 재발 방지 대책을 마련해 다시 안내드리겠습니다.\n감사합니다.',
+       en:'Hello, Syncer.\n\nWe are deeply sorry for the serious inconvenience caused by the extended emergency maintenance.\nAs a token of our apology, a reward has been sent to you for your long wait.\n\nWe will analyze the cause, prepare measures to prevent recurrence, and inform you again.\nThank you.' },
+  6: { mail_no:105, title:1453, context:1454, box:15005, items:[[2,3000],[3,3000],[4,15],[5,45],[6,45]],
+       ko:'싱커님, 안녕하세요.\n\n오랜 시간 게임을 이용하지 못하게 만든 점, 고개 숙여 깊이 사과드립니다.\n\n기다려 주신 싱커님께 사과의 마음을 담아 보상을 지급해 드립니다.\n\n신뢰를 회복할 수 있도록 인프라 전반을 재점검하겠으며, 조치 결과는 별도 공지를 통해 상세히 안내드리겠습니다.\n다시 한번 깊이 사과드립니다.',
+       en:'Hello, Syncer.\n\nWe bow our heads and deeply apologize for keeping you from playing for such a long time.\n\nAs a token of our apology, a reward has been sent to you for your patience.\n\nTo regain your trust we will review our entire infrastructure, and we will share the results in detail through a separate notice.\nOnce again, we deeply apologize.' },
+  8: { mail_no:106, title:1453, context:1454, box:15006, items:[[2,4000],[3,4000],[4,20],[5,60],[6,60]],
+       ko:'싱커님, 안녕하세요.\n\n오랜 시간 게임을 이용하지 못하게 만든 점, 고개 숙여 깊이 사과드립니다.\n\n기다려 주신 싱커님께 사과의 마음을 담아 보상을 지급해 드립니다.\n\n신뢰를 회복할 수 있도록 인프라 전반을 재점검하겠으며, 조치 결과는 별도 공지를 통해 상세히 안내드리겠습니다.\n다시 한번 깊이 사과드립니다.',
+       en:'Hello, Syncer.\n\nWe bow our heads and deeply apologize for keeping you from playing for such a long time.\n\nAs a token of our apology, a reward has been sent to you for your patience.\n\nTo regain your trust we will review our entire infrastructure, and we will share the results in detail through a separate notice.\nOnce again, we deeply apologize.' },
+};
+const REGULAR = {
+  mail_no:101, title:1473, context:1424, box:15001, items:[[2,1000],[3,1000],[4,5],[5,15],[6,15]],
+  subject:{ko:'정기 점검 보상', en:'Scheduled Maintenance Reward'},
+  ko:'싱커님, 안녕하세요.\n\n정기 점검이 완료되었습니다.\n기다려 주신 것에 감사드리며, 보상을 지급해 드립니다.\n\n더 안정적인 게임 환경을 제공하기 위해 노력하겠습니다.\n감사합니다.',
+  en:'Hello, Syncer.\n\nThe scheduled maintenance has been completed.\nThank you for waiting, and please accept this reward.\n\nWe will keep working to provide a more stable game environment.\nThank you.'
+};
+const KIMPD = {
+  mail_no:108, title:1459, context:1460, send_time:'20:00', expire:2, days:7, items:[[4,50],[5,150],[6,150]],
+  subject:{ko:'[김피디가 쏜다] 오늘의 선물이 도착했습니다!', en:"[PD Kim's Treat] Today's Gift Has Arrived!"},
+  ko:'안녕하세요, 싱커님. 김피디입니다.\n항상 아가타 키우기와 함께해 주셔서 진심으로 감사드립니다.\n감사의 마음을 담아 「김피디가 쏜다」 오늘의 선물을 보내드립니다.\n오늘 준비한 선물도 즐겁게 사용해 주시고, 아가타들과 좋은 시간 보내시길 바랍니다.\n보내주시는 응원과 믿음에 더 안정적인 서비스와 좋은 게임으로 보답하겠습니다.\n감사합니다.\n김피디',
+  en:"Hello, Syncers. This is PD Kim.\nThank you so much for always being with AgathaIdle.\nAs a token of our gratitude, here is today's gift from \"PD Kim's Treat\".\nPlease enjoy today's gift and have a great time with your Agathas.\nWe will repay your support and trust with a more stable service and a better game.\nThank you.\nPD Kim"
+};
+function ymd(){ return today().slice(2).replace(/-/g,''); }
+function keyFor(c, base){ return ymd() + '_' + base; }
+function tplItems(list){ return list.map(a => ({no:a[0], count:a[1]})); }
+function applyTemplate(name, opts){
+  opts = opts || {};
+  let c = current();
+  if (!c){ addCond(); c = current(); }
+  else if (!opts.silent && c.tpl !== name && (c.items.length || c.subject.ko.trim())) {
+    if (!confirm('지금 편집 중인 우편 내용을 "' + TPL_NAMES[name] + '" 템플릿으로 바꿀까요?\n(날짜와 보상, 제목, 본문이 모두 템플릿 값으로 바뀝니다)')) return;
+  }
+  const t = today();
+  c.tpl = name;
+  if (name === 'regular' || name === 'emergency'){
+    if (name === 'emergency' && !EMERGENCY[c.tplHours]) c.tplHours = 2;
+    if (!c.tplReward) c.tplReward = 'items';
+    const T = name === 'regular' ? REGULAR : EMERGENCY[c.tplHours];
+    c.type = 2; c.dateMode = 'period'; c.begin_date = t; c.end_date = addDays(t, 7); c.expire = 14;
+    c.mail_no = T.mail_no; c.title = T.title; c.context = T.context;
+    c.useSubject = true; c.useDesc = true;
+    c.subject = name === 'regular' ? Object.assign({}, REGULAR.subject) : {ko:'긴급 점검 보상', en:'Emergency Maintenance Reward'};
+    c.desc = {ko:T.ko, en:T.en};
+    c.from = Object.assign({}, OPS_FROM);
+    c.items = c.tplReward === 'box' ? [{no:T.box, count:1}] : tplItems(T.items);
+    c.onetime_key = keyFor(c, name === 'regular' ? '정기점검보상' : '긴급점검보상_' + c.tplHours + 'h');
+  } else if (name === 'kimpd'){
+    c.type = T_TIME; c.dateMode = 'period'; c.begin_date = t; c.end_date = addDays(t, KIMPD.days - 1); c.send_time = KIMPD.send_time; c.expire = KIMPD.expire;
+    c.mail_no = KIMPD.mail_no; c.title = KIMPD.title; c.context = KIMPD.context;
+    c.useSubject = true; c.useDesc = true;
+    c.subject = Object.assign({}, KIMPD.subject); c.desc = {ko:KIMPD.ko, en:KIMPD.en};
+    c.from = Object.assign({}, KIMPD_FROM);
+    c.items = tplItems(KIMPD.items);
+    c.onetime_key = '';
+  } else { // custom
+    c.type = 2; c.dateMode = 'period'; c.begin_date = t; c.end_date = addDays(t, 7); c.expire = 14;
+    c.mail_no = 108; c.title = 1459; c.context = 1460;
+    c.useSubject = true; c.useDesc = true;
+    c.subject = {ko:'', en:''}; c.desc = {ko:'', en:''};
+    c.from = Object.assign({}, OPS_FROM);
+    c.items = []; c.onetime_key = '';
+  }
+  c.category = name === 'regular' ? '정기 점검 보상' : name === 'emergency' ? '긴급 점검 보상 (' + c.tplHours + '시간)' : name === 'kimpd' ? '김피디가 쏜다' : (c.category || '');
+  if (c.audience === 'target') { c.type = 2; c.dateMode = 'period'; }
+  fillForm(); renderAll();
+  if (!opts.silent) toast('"' + TPL_NAMES[name] + '" 템플릿을 채웠습니다. 날짜와 내용을 확인하세요.');
+  if (name === 'custom') { $('#fSubKo').focus(); }
+}
+function renderTplState(c){
+  $$('#tplGrid .tpl').forEach(b => b.classList.toggle('on', !!c && b.dataset.tpl === c.tpl));
+  const em = !!c && c.tpl === 'emergency';
+  $('#rowEmHours').hidden = !em;
+  $('#rowRewardMode').hidden = !(c && (c.tpl === 'emergency' || c.tpl === 'regular'));
+  if (em){
+    $$('#emHours .chip').forEach(b => b.classList.toggle('on', +b.dataset.h === c.tplHours));
+    const T = EMERGENCY[c.tplHours];
+    $('#emHoursHelp').textContent = T ? '점검 ' + c.tplHours + '시간 보상: ' + T.items.map(a => (ITEM_MAP[a[0]]||{}).kr + ' ' + fmt(a[1])).join(', ') + '  (Mail.xlsx 서식 ' + T.mail_no + ')' : '';
+  }
+  if (c && (c.tpl === 'emergency' || c.tpl === 'regular')) setSeg('segReward', c.tplReward || 'items');
+}
+
+/* ==========================================================
+   유틸
+   ========================================================== */
+const $ = s => document.querySelector(s);
+const $$ = s => Array.from(document.querySelectorAll(s));
+const pad = n => String(n).padStart(2,'0');
+function today(){ const d=new Date(); return d.getFullYear()+'-'+pad(d.getMonth()+1)+'-'+pad(d.getDate()); }
+function addDays(iso,n){ const d=new Date(iso+'T00:00:00'); d.setDate(d.getDate()+n); return d.getFullYear()+'-'+pad(d.getMonth()+1)+'-'+pad(d.getDate()); }
+function uid(){ return Math.random().toString(36).slice(2,9); }
+function fmt(n){ return Number(n||0).toLocaleString('ko-KR'); }
+function isDate(s){ return /^\d{4}-\d{2}-\d{2}$/.test(s||'') && !isNaN(new Date(s+'T00:00:00').getTime()); }
+function normTime(t){
+  const m = /^(\d{1,2}):(\d{1,2})$/.exec(String(t||'').trim());
+  if (!m) return '';
+  const h = +m[1], mi = +m[2];
+  if (h > 23 || mi > 59) return '';
+  return h + ':' + pad(mi);
+}
+function timeInputValue(t){ const n = normTime(t); if (!n) return ''; const [h,mi] = n.split(':'); return pad(h)+':'+mi; }
+const KST_OFFSET = 9;
+function kstToUtc(t){ const n = normTime(t); if (!n) return ''; const [h,mi] = n.split(':').map(Number); return ((h + 24 - KST_OFFSET) % 24) + ':' + pad(mi); }
+function utcToKst(t){ const n = normTime(t); if (!n) return ''; const [h,mi] = n.split(':').map(Number); return ((h + KST_OFFSET) % 24) + ':' + pad(mi); }
+function utcHint(t){
+  const n = normTime(t); if (!n) return '';
+  const h = +n.split(':')[0];
+  return '→ send_time ' + kstToUtc(t) + (h < KST_OFFSET ? ' (UTC 기준 전날)' : '');
+}
+function dayDiff(a,b){ return Math.round((new Date(b+'T00:00:00')-new Date(a+'T00:00:00'))/86400000); }
+function escHtml(s){ return String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
+function gradeColor(g){ const k = g>10 ? g-10 : g; return GRADE_COLORS[k] || '#9AA3B2'; }
+function gradeName(g){ return GRADES[g] || (g ? '등급'+g : ''); }
+function strKr(no){ const s=STR[no]; return s ? s.kr : ''; }
+function strEn(no){ const s=STR[no]; return s ? s.en : ''; }
+
+// 텍스트 치환 규칙 (/n /1 /2 /3)
+function escText(t, full){
+  t = String(t ?? '').replace(/\r\n?/g,'\n').replace(/\n/g,'/n');
+  if (full) t = t.replace(/,/g,'/1').replace(/"/g,'/2').replace(/'/g,'/3');
+  return t;
+}
+function unescText(t){ return String(t ?? '').replace(/\/n/g,'\n').replace(/\/1/g,',').replace(/\/2/g,'"').replace(/\/3/g,"'"); }
+function jsonStr(s){ return String(s).replace(/\\/g,'\\\\').replace(/"/g,'\\"'); }
+function langValue(o, full){
+  const ko = escText(o?.ko, full);
+  let en = escText(o?.en, full);
+  if (!en.trim()) en = ko;
+  return {ko, en};
+}
+function parseLang(s){
+  if (s === undefined || s === null || s === '') return null;
+
+  // 신규 규격: {"ko":"...","en":"..."} 객체를 그대로 사용
+  if (typeof s === 'object' && !Array.isArray(s)) {
+    return {ko:unescText(s.ko||''), en:unescText(s.en||'')};
+  }
+
+  // 구 규격 하위 호환: JSON 객체를 문자열로 감싼 값도 읽을 수 있게 유지
+  if (typeof s === 'string') {
+    try {
+      const o = JSON.parse(s);
+      if (o && typeof o === 'object' && !Array.isArray(o)) {
+        return {ko:unescText(o.ko||''), en:unescText(o.en||'')};
+      }
+    } catch(e){}
+  }
+
+  return {ko:unescText(String(s)), en:''};
+}
+
+/* ==========================================================
+   상태
+   ========================================================== */
+let state = { conds: [], selected: null, lang:'ko', escape:true, filter:'all' };
+
+function newCond(){
+  const t = today();
+  return {
+    id: uid(), type:1, dateMode:'day', login_date:t, begin_date:t, end_date:t, onetime_key:'', send_time:'10:00',
+    tpl:null, tplHours:2, tplReward:'items',
+    audience:'all', delivery:'login', targetsRaw:'', targets:[], category:'',
+    mail_no:0, title:0, context:0, expire:7,
+    useSubject:true, useDesc:true,
+    subject:{ko:'',en:''}, desc:{ko:'',en:''}, from:{ko:'GM 하논',en:'GM Hanon'},
+    items:[], extra:{}
+  };
+}
+function current(){ return state.conds.find(c => c.id === state.selected) || null; }
+
+function save(){
+  try { localStorage.setItem(STORAGE_KEY, JSON.stringify({conds:state.conds, selected:state.selected, escape:state.escape, lang:state.lang})); } catch(e){}
+}
+function load(){
+  try {
+    const raw = localStorage.getItem(STORAGE_KEY); if (!raw) return false;
+    const o = JSON.parse(raw);
+    if (Array.isArray(o.conds) && o.conds.length){ state.conds = o.conds; state.selected = o.selected; state.escape = o.escape !== false; state.lang = o.lang || 'ko'; return true; }
+  } catch(e){}
+  return false;
+}
+
+/* ==========================================================
+   JSON 생성
+   ========================================================== */
+/* ==========================================================
+   특정 유저 발송 (대상 UID / 전달 방식 / 시트 행)
+   ========================================================== */
+function isTarget(c){ return !!c && c.audience === 'target'; }
+function parseTargets(raw){
+  const tokens = String(raw||'').split(/[\s,;]+/).filter(Boolean);
+  const seen = new Set(), ids = [], bad = []; let dup = 0;
+  for (const t of tokens){
+    if (/^\d+$/.test(t)){ const n = +t; if (seen.has(n)) dup++; else { seen.add(n); ids.push(n); } }
+    else bad.push(t);
+  }
+  return {ids, dup, bad};
+}
+function syncTargets(c){ const p = parseTargets(c.targetsRaw); c.targets = p.ids; return p; }
+function deliveryLabel(c){ return c.delivery === 'direct' ? '바로 우편함에' : '기간 안에 접속하면'; }
+function sendDesc(c){ // 시트 "발송" 칸
+  const md = s => isDate(s) ? (+s.slice(5,7)) + '/' + (+s.slice(8,10)) : '?';
+  const keep = ' · 보관 ' + (+c.expire||0) + '일';
+  if (isTarget(c)) return c.delivery === 'direct' ? '대상 UID 즉시 지급 1회' + keep : md(c.begin_date) + '~' + md(c.end_date) + ' 대상 UID 접속 시 1회' + keep;
+  if (c.type === T_DIRECT) return '모든 유저 즉시 발송 1회' + keep;
+  if (c.type === T_TIME) return md(c.begin_date) + '~' + md(c.end_date) + ' 매일 ' + (normTime(c.send_time)||'?') + keep;
+  if (c.type === 2) return md(c.begin_date) + '~' + md(c.end_date) + ' 접속 시 1회' + keep;
+  if (c.dateMode === 'day') return md(c.login_date) + ' 접속 시' + keep;
+  return md(c.begin_date) + '~' + md(c.end_date) + ' 접속 시 매일' + keep;
+}
+function rewardDesc(c){ return c.items.length ? c.items.map(it => { const item = ITEM_MAP[+it.no]; return (item ? item.kr : 'no ' + it.no) + ' ' + fmt(it.count); }).join('\n') : '없음'; }
+function sheetValues(c){
+  return [ today(), c.category || '', c.useSubject ? c.subject.ko : strKr(+c.title), c.from.ko, c.useDesc ? c.desc.ko : unescText(strKr(+c.context)), rewardDesc(c), sendDesc(c), isTarget(c) ? c.targets.join('\n') : '', serialize(buildCondition(c)) ];
+}
+function tsvCell(v){ v = String(v ?? ''); return /[\t\n"]/.test(v) ? '"' + v.replace(/"/g,'""') + '"' : v; }
+function sheetRowText(c){ const vals = sheetValues(c); if ($('#fSheetSeq').checked) vals.unshift(''); return vals.map(tsvCell).join('\t'); }
+function sheetRowHtml(c){ const vals = sheetValues(c); if ($('#fSheetSeq').checked) vals.unshift(''); return '<table><tr>' + vals.map(v => '<td>' + escHtml(String(v ?? '')).replace(/\n/g,'<br>') + '</td>').join('') + '</tr></table>'; }
+async function copyRich(text, html){
+  try { if (navigator.clipboard && window.ClipboardItem){ await navigator.clipboard.write([new ClipboardItem({'text/plain': new Blob([text],{type:'text/plain'}), 'text/html': new Blob([html],{type:'text/html'})})]); return true; } } catch(e){}
+  return copyText(text);
+}
+function renderTargets(){
+  const c = current();
+  const box = $('#targetsBox'), ta = $('#fTargets');
+  box.classList.toggle('off', !c || !isTarget(c));
+  $('#targetsBoxNote').textContent = !c ? '우편을 먼저 선택하세요' : isTarget(c) ? '' : '이 우편은 "모든 유저" 발송입니다. 특정 유저에게만 보내려면 편집 화면의 받는 사람을 바꾸세요.';
+  ta.disabled = !c;
+  if (c && document.activeElement !== ta) ta.value = c.targetsRaw || '';
+  if (c){
+    const p = parseTargets(c.targetsRaw);
+    $('#targetStat').innerHTML = '<b>' + p.ids.length + '명</b>' + (p.dup ? '<span class="badge n">중복 ' + p.dup + ' 제거</span>' : '') + (p.bad.length ? '<span class="badge warn">숫자 아님 ' + p.bad.length + '</span>' : '');
+    $('#targetWarn').hidden = !p.bad.length;
+    $('#targetWarn').textContent = p.bad.length ? '숫자가 아니라서 무시한 값: ' + p.bad.slice(0,10).join(', ') + (p.bad.length > 10 ? ' 외 ' + (p.bad.length-10) + '개' : '') : '';
+    if (document.activeElement !== $('#fCategory')) $('#fCategory').value = c.category || '';
+    const vals = sheetValues(c);
+    $('#sheetTable').innerHTML = SHEET_COLS.map((k,i) => '<tr><td class="k">' + k + '</td><td class="v">' + escHtml(String(vals[i] ?? '')) + '</td><td class="c"><button type="button" class="use" data-col="' + i + '">복사</button></td></tr>').join('');
+  } else { $('#targetStat').textContent = ''; $('#targetWarn').hidden = true; $('#sheetTable').innerHTML = ''; }
+  const cnt = c ? c.targets.length : 0;
+  $('#targetCount').textContent = cnt + '명';
+  $('#targetCount').style.color = cnt ? 'var(--ink)' : 'var(--err)';
+}
+function buildTargetFile(){
+  const tg = state.conds.filter(isTarget);
+  return tg.length ? [{ type:'target', name:'TARGET_USER_ONE_TIME_REWARD', description:'특정 유저(target_uids)에게만 발송. delivery: login_period = 기간 안에 접속 시 1회, direct = 즉시 우편함 지급. 서버 형식 확정 전 임시 규격', conditions: tg.map(buildCondition) }] : [];
+}
+function targetFileName(){ return 'targetMail' + today().slice(5).replace('-','') + '.json'; }
+
+function buildCondition(c){
+  const o = {};
+  if (isTarget(c)){
+    o.onetime_key = c.onetime_key || '';
+    o.delivery = c.delivery === 'direct' ? 'direct' : 'login_period';
+    o.begin_date = c.delivery === 'direct' ? '' : (c.begin_date || ''); o.end_date = c.delivery === 'direct' ? '' : (c.end_date || '');
+  } else
+  if (c.type === T_DIRECT){ /* 즉시 발송은 날짜, 시각, 접속 조건을 보내지 않는다. */ }
+  else if (c.type === T_TIME){ o.begin_date = c.begin_date || ''; o.end_date = c.end_date || ''; o.send_time = kstToUtc(c.send_time) || ''; }
+  else if (c.type === 2){ o.onetime_key = c.onetime_key || ''; o.begin_date = c.begin_date || ''; o.end_date = c.end_date || ''; }
+  else if (c.dateMode === 'day'){ o.login_date = c.login_date || ''; }
+  else { o.login_date = ''; o.begin_date = c.begin_date || ''; o.end_date = c.end_date || ''; }
+  o.mail_no = +c.mail_no || 0; o.title = +c.title || 0; o.context = +c.context || 0; o.expire = +c.expire || 0;
+  // 신규 actionEventData 규격: 다국어 텍스트는 JSON 문자열이 아니라 객체로 출력
+  o.subject_text = c.useSubject ? langValue(c.subject, state.escape) : '';
+  o.desc_text = c.useDesc ? langValue(c.desc, state.escape) : '';
+  o.from_text = langValue(c.from, state.escape);
+  o.mail_items = c.items.map(it => [+it.no || 0, +it.count || 0]);
+  if (isTarget(c)) o.target_uids = c.targets.slice();
+  for (const k in (c.extra||{})) if (!(k in o)) o[k] = c.extra[k];
+  if (c.type === T_DIRECT) for (const k of ['login_date','begin_date','end_date','send_time','onetime_key']) delete o[k];
+  return o;
+}
+function serialize(obj){
+  return JSON.stringify(obj, null, 2)
+    .replace(/\[\s+(-?\d+),\s+(-?\d+)\s+\]/g, '[$1,$2]')
+    .replace(/"target_uids": \[([^\]]*)\]/g, (m, inner) => '"target_uids": [' + inner.replace(/\s+/g,'').replace(/,/g,', ') + ']');
+}
+function buildFile(){
+  if (state.conds.some(c => c.type === T_DIRECT)) throw new Error('즉시 발송은 request JSON 내려받기 또는 POST 전송을 사용하세요.');
+  // 안전장치: 특정 유저 우편은 전체 발송 파일에 절대 포함하지 않는다.
+  const all = state.conds.filter(c => !isTarget(c));
+  const t1 = all.filter(c => c.type === 1), t2 = all.filter(c => c.type === 2), t3 = all.filter(c => c.type === T_TIME);
+  const arr = [];
+  // 실제 우편이 존재하는 타입 블록만 출력한다.
+  // type 1 우편이 0건이면 빈 type 1 블록을 만들지 않는다.
+  if (t1.length) arr.push({ type:1, name:'DAILY_LOGIN_REWARD', conditions:t1.map(buildCondition) });
+  if (t2.length) arr.push({ type:2, name:'LOGIN_PERIOD_ONE_TIME_REWARD', description:'지정한 기한 안에 로그인시 한번만 지급', conditions:t2.map(buildCondition) });
+  if (t3.length) arr.push({ type:T_TIME, name:'PERIOD_TARGET_TIME_ONE_TIME_REWARD', description:'지정한 기한에 지정한 시간에 매일 발송, 이건 별도 게임 서버에 통합이 아닌 시스템으로 작동함', conditions:t3.map(buildCondition) });
+  return arr;
+}
+const REQUEST_TEMPLATE = {
+  command_type: 'SEND_MAIL',
+  ADMIN_EXECUTE_FIRST_KEY: '<%=ADMIN_EXECUTE_FIRST_KEY%>',
+  ADMIN_EXECUTE_SECOND_KEY: '<%=ADMIN_EXECUTE_SECOND_KEY%>',
+  ADMIN_EXECUTE_THIRD_KEY: '<%=ADMIN_EXECUTE_THIRD_KEY%>',
+};
+
+function requestMailInfo(c){
+  const x = buildCondition(c);
+  const keys = ['onetime_key','begin_date','end_date','mail_no','title','context','expire','subject_text','desc_text','from_text','mail_items'];
+  const out = {};
+  for (const k of keys) if (x[k] !== undefined && x[k] !== '') out[k] = x[k];
+  return out;
+}
+function buildRequestPayload(){
+  if (!state.conds.length) throw new Error('발송할 우편이 없습니다.');
+  const targetConds = state.conds.filter(isTarget), allConds = state.conds.filter(c => !isTarget(c));
+  if (targetConds.length && allConds.length) throw new Error('request 형식은 target_info가 하나이므로 모든 유저/특정 유저 우편을 한 요청에 섞을 수 없습니다. 한 종류만 남기거나 각각 따로 전송하세요.');
+  let targetInfo;
+  let conds;
+  if (targetConds.length){
+    const ids = [...new Set(targetConds.flatMap(c => { syncTargets(c); return c.targets; }))];
+    if (!ids.length) throw new Error('특정 유저 UID가 없습니다.');
+    targetInfo = {comment:'ALL_USERS / TARGET_USER_IDXS ', target_type:'TARGET_USER_IDXS', user_idxs:ids, exclusion_user_idxs:[]};
+    conds = targetConds;
+  } else {
+    targetInfo = {comment:'ALL_USERS / TARGET_USER_IDXS ', target_type:'ALL_USERS', user_idxs:[], exclusion_user_idxs:[]};
+    conds = allConds;
+  }
+  return {...REQUEST_TEMPLATE, SEND_MAIL:{target_info:targetInfo, mail_infos:conds.map(requestMailInfo)}};
+}
+function requestFileName(){ return 'request_' + today().replace(/-/g,'') + '.json'; }
+function downloadRequest(){
+  try { downloadBlob(JSON.stringify(buildRequestPayload(), null, 2)+'\n', requestFileName()); toast(requestFileName()+' 내려받기 시작'); }
+  catch(e){ toast(e.message, true); }
+}
+let postInFlight = false;
+let postEndpoint = '';
+async function loadPostConfig(){
+  postEndpoint = '';
+  updatePostButton();
+  try {
+    if (location.protocol === 'file:') throw new Error('npm start 실행 후 http://127.0.0.1:3000 에서 열어주세요.');
+    const res = await fetch( '<%=POST_URL_SEND_MAIL %>', {cache:'no-store'});
+    const config = await res.json();
+    if (!res.ok) throw new Error(config.error || 'POST URL 설정을 읽지 못했습니다.');
+    const url = new URL(config.postUrl);
+    if (!['http:', 'https:'].includes(url.protocol)) throw new Error('POST URL 설정이 올바르지 않습니다.');
+    postEndpoint = url.href;
+    $('#postEndpoint').textContent = postEndpoint;
+  } catch(e){
+    $('#postEndpoint').textContent = e.message;
+  }
+  updatePostButton();
+}
+function canPostImmediately(){
+  return state.conds.length > 0 && state.conds.every(c => isTarget(c) ? c.delivery === 'direct' : c.type === T_DIRECT);
+}
+function updatePostButton(){
+  const immediate = canPostImmediately();
+  $('#btnPost').disabled = postInFlight || !postEndpoint || !immediate || !$('#postSenderId').value.trim() || !$('#postKey').value.trim();
+  $('#btnPost').title = immediate ? '' : '발송 목록의 모든 우편이 즉시 발송일 때만 HTTP POST 전송할 수 있습니다.';
+}
+async function postRequest(){
+  if (postInFlight) return;
+  if (!canPostImmediately()){ toast('HTTP POST 전송은 발송 목록의 모든 우편이 즉시 발송일 때만 가능합니다.', true); return; }
+  const senderId = $('#postSenderId').value.trim();
+  const key = $('#postKey').value;
+  if (!senderId){ toast('SENDER ID를 입력하세요.', true); $('#postSenderId').focus(); return; }
+  if (!key.trim()){ toast('KEY를 입력하세요.', true); $('#postKey').focus(); return; }
+  const url = postEndpoint;
+  if (!url){ toast('.env의 POST_URL 설정을 확인하고 페이지를 새로고침하세요.', true); return; }
+  let payload; try { payload = {...buildRequestPayload(), sender_id: senderId, key}; } catch(e){ toast(e.message, true); return; }
+  if (!confirm('현재 우편 요청을 다음 주소로 POST 전송할까요?\n\n'+url)) return;
+  postInFlight = true;
+  const btn = $('#btnPost'); updatePostButton(); const old = btn.textContent; btn.textContent = '전송 중...';
+  try {
+    alert(JSON.stringify(payload))
+    const res = await fetch(url, {method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify(payload)});
+    const body = await res.text();
+    if (!res.ok) throw new Error('HTTP '+res.status+' '+res.statusText+(body ? ' · '+body.slice(0,180) : ''));
+    toast('POST 전송 성공 (HTTP '+res.status+')');
+  } catch(e){ toast('POST 전송 실패: '+e.message, true); }
+  finally { postInFlight = false; btn.textContent = old; updatePostButton(); }
+}
+
+function highlight(json){
+  return escHtml(json).replace(/("(?:[^"\\]|\\.)*")(\s*:)?|(-?\b\d+(?:\.\d+)?\b)/g, (m,str,colon,num) => {
+    if (str) return colon ? '<span class="k">'+str+'</span>'+colon : '<span class="s">'+str+'</span>';
+    if (num) return '<span class="n">'+num+'</span>';
+    return m;
+  });
+}
+
+/* ==========================================================
+   검증
+   ========================================================== */
+function validate(c){
+  const E = [], W = [];
+  const t = today();
+  if (isTarget(c)){
+    const p = parseTargets(c.targetsRaw);
+    if (!p.ids.length) E.push('특정 유저 발송인데 대상 UID가 없습니다. 오른쪽 [대상·시트] 탭에 UID를 넣으세요.');
+    if (p.bad.length) W.push('UID 목록에 숫자가 아닌 값 ' + p.bad.length + '개가 있어 무시됩니다.');
+    if (c.delivery !== 'direct'){
+      if (!isDate(c.begin_date) || !isDate(c.end_date)) E.push('시작일 / 종료일을 입력하세요. (기간 안에 접속해야 받는 방식)');
+      else if (c.begin_date > c.end_date) E.push('종료일이 시작일보다 앞입니다.');
+      else if (c.end_date < t) W.push('종료일이 이미 지났습니다.');
+      else if (dayDiff(c.begin_date, c.end_date) < 3) W.push('접속 기간이 ' + (dayDiff(c.begin_date, c.end_date)+1) + '일뿐입니다. 이 기간에 접속하지 않은 대상자는 받지 못합니다.');
+    }
+    if (!c.onetime_key.trim()) W.push('우편 이름표가 비어 있습니다. 특정 유저 발송이라도 이름표가 있으면 이력 관리에 좋습니다.');
+    else { const dup = state.conds.filter(x => x.id !== c.id && x.onetime_key.trim() === c.onetime_key.trim()); if (dup.length) E.push('우편 이름표 "'+c.onetime_key+'"가 다른 우편과 중복됩니다.'); }
+  } else if (c.type === T_DIRECT){
+    // 즉시 발송에는 날짜 및 접속 조건이 필요하지 않다.
+  } else if (c.type === T_TIME){
+    if (!isDate(c.begin_date) || !isDate(c.end_date)) E.push('begin_date / end_date를 YYYY-MM-DD로 입력하세요.');
+    else if (c.begin_date > c.end_date) E.push('end_date가 begin_date보다 앞입니다.');
+    else if (c.end_date < t) W.push('종료일이 이미 지났습니다.');
+    if (!normTime(c.send_time)) E.push('send_time을 0:00 ~ 23:59 사이의 시각으로 입력하세요. type 10000은 반드시 필요합니다.');
+    else {
+      const dup = state.conds.filter(x => x.type === T_TIME && x.id !== c.id
+        && normTime(x.send_time) === normTime(c.send_time)
+        && x.begin_date === c.begin_date && x.end_date === c.end_date);
+      if (dup.length) W.push('같은 기간·같은 시각(' + normTime(c.send_time) + ' KST)으로 발송되는 우편이 또 있습니다.');
+      if (+normTime(c.send_time).split(':')[0] < KST_OFFSET) W.push('한국 시간 9:00 이전이라 send_time이 ' + kstToUtc(c.send_time) + ' (UTC 기준 전날)이 됩니다. 발송 기간 날짜를 확인하세요.');
+    }
+  } else if (c.type === 2){
+    if (!c.onetime_key.trim()) E.push('onetime_key가 비어 있습니다. type 2는 반드시 필요합니다.');
+    else {
+      const dup = state.conds.filter(x => x.type === 2 && x.id !== c.id && x.onetime_key.trim() === c.onetime_key.trim());
+      if (dup.length) E.push('onetime_key "'+c.onetime_key+'"가 다른 type 2 우편과 중복됩니다.');
+    }
+    if (!isDate(c.begin_date) || !isDate(c.end_date)) E.push('begin_date / end_date를 YYYY-MM-DD로 입력하세요.');
+    else if (c.begin_date > c.end_date) E.push('end_date가 begin_date보다 앞입니다.');
+    else if (c.end_date < t) W.push('종료일이 이미 지났습니다.');
+  } else if (c.dateMode === 'day'){
+    if (!isDate(c.login_date)) E.push('login_date를 YYYY-MM-DD로 입력하세요.');
+    else if (c.login_date < t) W.push('발송일이 이미 지났습니다.');
+  } else {
+    if (!isDate(c.begin_date) || !isDate(c.end_date)) E.push('begin_date / end_date를 YYYY-MM-DD로 입력하세요.');
+    else if (c.begin_date > c.end_date) E.push('end_date가 begin_date보다 앞입니다.');
+    else if (c.end_date < t) W.push('종료일이 이미 지났습니다.');
+  }
+  if (!(+c.expire >= 1)) E.push('보관 기간(expire)은 1일 이상이어야 합니다.');
+  const mailNo = +c.mail_no || 0;
+  if (mailNo && !MAIL_MAP[mailNo]) W.push('mail_no '+mailNo+'은 Mail.xlsx에 없습니다.');
+  if (+c.title && !STR[+c.title]) W.push('title 스트링 no '+c.title+'을 LocalizedString에서 찾지 못했습니다.');
+  if (+c.context && !STR[+c.context]) W.push('context 스트링 no '+c.context+'을 LocalizedString에서 찾지 못했습니다.');
+  if (c.useSubject){ if (!c.subject.ko.trim()) E.push('제목(한국어)이 비어 있습니다.'); else if (!c.subject.en.trim()) W.push('제목 영문이 비어 있어 한국어를 그대로 넣습니다.'); }
+  else if (!(+c.title)) E.push('제목을 직접 입력하지 않으면 title 스트링 no가 필요합니다.');
+  if (c.useDesc){ if (!c.desc.ko.trim()) E.push('본문(한국어)이 비어 있습니다.'); else if (!c.desc.en.trim()) W.push('본문 영문이 비어 있어 한국어를 그대로 넣습니다.'); }
+  else if (!(+c.context)) E.push('본문을 직접 입력하지 않으면 context 스트링 no가 필요합니다.');
+  if (!c.from.ko.trim()) E.push('발송인이 비어 있습니다.');
+  const enAll = [c.useSubject?c.subject.en:'', c.useDesc?c.desc.en:'', c.from.en].join(' ');
+  if (/sinker/i.test(enAll)) W.push('영문에 "Sinker"가 있습니다. 표기 규칙은 "Syncer"입니다.');
+  if (!c.items.length) W.push('첨부 아이템이 없습니다. (안내용 우편이면 그대로 두세요)');
+  const seen = new Set();
+  c.items.forEach((it,i) => {
+    const no = +it.no, cnt = +it.count, item = ITEM_MAP[no];
+    if (!item) E.push((i+1)+'번째 아이템 no '+no+'은 Item.xlsx에 없습니다.');
+    if (!(cnt >= 1)) E.push((item ? item.kr : 'no '+no)+' 수량이 1 이상이어야 합니다.');
+    else if (item && item.max && cnt > item.max) W.push(item.kr+' 수량 '+fmt(cnt)+'이 최대 보유 '+fmt(item.max)+'을 넘습니다.');
+    if (seen.has(no)) W.push((item ? item.kr : 'no '+no)+'이(가) 두 번 이상 들어 있습니다.');
+    seen.add(no);
+  });
+  return {errors:E, warns:W};
+}
+
+/* ==========================================================
+   렌더: 목록
+   ========================================================== */
+function condLabel(c){
+  if (c.useSubject && c.subject.ko.trim()) return c.subject.ko.trim();
+  if (+c.title && STR[+c.title]) return STR[+c.title].kr;
+  if (+c.mail_no && MAIL_MAP[+c.mail_no]) return MAIL_MAP[+c.mail_no].memo || ('mail_no '+c.mail_no);
+  return '(제목 없음)';
+}
+function condDate(c){
+  if (c.type === T_DIRECT) return 'POST 요청 시 즉시';
+  if (c.type === T_TIME) return (c.begin_date||'?')+' ~ '+(c.end_date||'?')+' · '+(normTime(c.send_time) ? normTime(c.send_time)+' KST' : '시각 미입력');
+  if (c.type === 2 || c.dateMode === 'period') return (c.begin_date||'?')+' ~ '+(c.end_date||'?');
+  return c.login_date || '?';
+}
+function renderList(){
+  const box = $('#condList');
+  $('#condCount').textContent = state.conds.length ? state.conds.length+'건' : '';
+  if (!state.conds.length){
+    box.innerHTML = '<div class="empty"><strong>아직 우편이 없습니다</strong>+ 새 우편으로 시작하거나<br>기존 JSON을 불러오세요.</div>';
+    return;
+  }
+  box.innerHTML = state.conds.map(c => {
+    const v = validate(c);
+    const issues = v.errors.length ? '<span class="badge err">오류 '+v.errors.length+'</span>' : (v.warns.length ? '<span class="badge warn">확인 '+v.warns.length+'</span>' : '<span class="badge ok">OK</span>');
+    return '<button type="button" class="cond'+(c.id===state.selected?' selected':'')+'" data-id="'+c.id+'">'
+      + '<div class="l1">' + (isTarget(c) ? '<span class="badge tg">대상 '+c.targets.length+'명</span><span class="badge dl">'+(c.delivery==='direct'?'즉시':'접속 1회')+'</span>' : '<span class="badge '+(TYPE_CLASS[c.type]||'t1')+'">'+(TYPE_SHORT[c.type]||'매일')+'</span>') + '<span class="date">'+escHtml(isTarget(c) && c.delivery==='direct' ? '즉시 지급' : condDate(c))+'</span></div>'
+      + '<div class="subj">'+escHtml(condLabel(c))+'</div>'
+      + '<div class="l3"><span>아이템 '+c.items.length+'종 · mail_no '+(+c.mail_no||0)+'</span><span class="issues">'+issues+'</span></div>'
+      + '</button>';
+  }).join('');
+}
+
+/* ==========================================================
+   렌더: 폼
+   ========================================================== */
+function setSeg(id, v){ $$('#'+id+' button').forEach(b => b.classList.toggle('on', b.dataset.v === String(v))); }
+
+function fillForm(){
+  const c = current();
+  $('#formEmpty').hidden = !!c;
+  $('#form').hidden = !c;
+  $('#btnDup').disabled = $('#btnDel').disabled = !c;
+  $('#issues').hidden = !c;
+  if (!c) { $('#formTitle').textContent = '우편 편집'; return; }
+  $('#formTitle').textContent = '우편 편집';
+  setSeg('segType', c.type); setSeg('segDate', c.dateMode);
+  const seg = $('#segType'); seg.classList.toggle('t1', c.type===1); seg.classList.toggle('t2', c.type===2); seg.classList.toggle('t3', c.type===T_TIME);
+  $('#typeHelp').innerHTML = TYPE_PLAIN[c.type] || TYPE_PLAIN[1];
+  renderTplState(c);
+  const tg = isTarget(c);
+  if (tg){ c.type = 2; c.dateMode = 'period'; }
+  setSeg('segAudience', c.audience || 'all'); setSeg('segDelivery', c.delivery || 'login');
+  $('#audienceHelp').innerHTML = tg ? '<b>특정 유저만</b> — 오른쪽 탭에 넣은 UID의 유저만 받습니다. 전체 발송 파일에는 들어가지 않고 <b>별도 파일(targetMail)</b>로 나갑니다.' : '<b>모든 유저</b> — 게임의 모든 유저가 대상입니다. 아래 "보내는 방식"으로 언제 받을지 정합니다.';
+  $('#deliveryHelp').textContent = c.delivery === 'direct' ? '서버가 대상 유저의 우편함에 바로 넣습니다. 접속 여부와 상관없고 날짜를 정하지 않습니다.' : '대상 유저가 시작일~종료일 안에 게임에 들어오면 한 통 받습니다. 기간 안에 안 들어오면 못 받으니 넉넉하게 잡으세요.';
+  $('#rowDelivery').hidden = !tg; $('#rowTargets').hidden = !tg; $('#rowType').hidden = tg;
+  syncTargets(c);
+  $('#rowDateMode').hidden = c.type !== 1 || tg;
+  $('#rowDay').hidden = !(c.type === 1 && c.dateMode === 'day') || tg;
+  $('#rowPeriod').hidden = !(c.type === 2 || c.type === T_TIME || c.dateMode === 'period') || (tg && c.delivery === 'direct') || c.type === T_DIRECT;
+  $('#rowKey').hidden = c.type !== 2;
+  $('#rowSendTime').hidden = c.type !== T_TIME || tg;
+  $('#fLogin').value = c.login_date; $('#fBegin').value = c.begin_date; $('#fEnd').value = c.end_date; $('#fKey').value = c.onetime_key;
+  $('#fSendTime').value = normTime(c.send_time) || c.send_time || '';
+  $('#sendTimeKst').textContent = utcHint(c.send_time);
+  $$('#sendTimePresets [data-time]').forEach(b => b.classList.toggle('on', b.dataset.time === normTime(c.send_time)));
+  updatePeriodHelp(c);
+  $('#fTemplate').value = MAIL_MAP[+c.mail_no] ? String(c.mail_no) : '0';
+  $('#fMailNo').value = c.mail_no; $('#fTitle').value = c.title; $('#fContext').value = c.context; $('#fExpire').value = c.expire;
+  updateStringRefs(c);
+  $('#fUseSubject').checked = c.useSubject; $('#fUseDesc').checked = c.useDesc;
+  $('#subjectPair').hidden = !c.useSubject; $('#descPair').hidden = !c.useDesc;
+  $('#subjectHelp').textContent = c.useSubject ? '' : '직접 쓰지 않으면 서식 번호(title)의 제목이 그대로 나갑니다. 아래 "서식 번호 (고급)"에서 확인할 수 있습니다.';
+  $('#fSubKo').value = c.subject.ko; $('#fSubEn').value = c.subject.en;
+  $('#fDescKo').value = c.desc.ko; $('#fDescEn').value = c.desc.en;
+  $('#fFromKo').value = c.from.ko; $('#fFromEn').value = c.from.en;
+  $('#fEscape').checked = state.escape;
+  renderFromPresets(c);
+  renderItemRows(c);
+  renderIssues(c);
+}
+function updatePeriodHelp(c){
+  const ok = isDate(c.begin_date) && isDate(c.end_date) && c.begin_date <= c.end_date;
+  $('#periodDays').textContent = ok ? (dayDiff(c.begin_date,c.end_date)+1)+'일간' : '';
+  $('#periodHelp').textContent = c.type === T_TIME ? '이 기간 동안 매일, 아래 시각에 모든 유저에게 보냅니다. (파일에는 begin_date / end_date로 저장)' : c.type === 2 ? '이 기간 안에 처음 게임에 들어온 날 한 통 받습니다. (파일에는 begin_date / end_date로 저장)' : '이 기간 동안 게임에 들어온 날마다 한 통씩 받습니다. (파일에는 begin_date / end_date로 저장)';
+}
+function updateStringRefs(c){
+  const t = +c.title, x = +c.context;
+  $('#titleRef').innerHTML = '<b>title '+(t||0)+'</b>' + (t ? (STR[t] ? escHtml(STR[t].kr) : '<span style="color:var(--err)">스트링 없음</span>') : '(없음)');
+  $('#contextRef').innerHTML = '<b>context '+(x||0)+'</b>' + (x ? (STR[x] ? escHtml(unescText(STR[x].kr)).slice(0,120) : '<span style="color:var(--err)">스트링 없음</span>') : '(없음)');
+}
+function renderFromPresets(c){
+  $('#fromPresets').innerHTML = FROM_PRESETS.map(p => '<button type="button" class="chip'+(p.ko===c.from.ko?' on':'')+'" data-ko="'+escHtml(p.ko)+'" data-en="'+escHtml(p.en)+'">'+escHtml(p.ko)+'</button>').join('');
+}
+function boxDesc(no){
+  const b = BOXES[no]; if (!b) return '';
+  return b.map(([r,mn,mx]) => { const it = ITEM_MAP[r]; return (it ? it.kr : 'no '+r) + ' ' + (mn===mx ? fmt(mn) : fmt(mn)+'~'+fmt(mx)); }).join(', ');
+}
+function renderItemRows(c){
+  const tb = $('#itemRows');
+  if (!c.items.length){ tb.innerHTML = '<tr class="empty-row"><td colspan="4">첨부 아이템이 없습니다. 위에서 검색하거나 바로 추가 버튼을 누르세요.</td></tr>'; return; }
+  tb.innerHTML = c.items.map((it,i) => {
+    const item = ITEM_MAP[+it.no];
+    const name = item ? '<span class="grade" style="background:'+gradeColor(item.grade)+'"></span><span class="nm">'+escHtml(item.kr)+'<small>'+escHtml(item.en)+' · '+escHtml(gradeName(item.grade))+' · '+(TYPE_NAMES[item.type]||'')+'</small></span>' : '<span class="nm" style="color:var(--err)">알 수 없는 아이템</span>';
+    const box = item && BOXES[+it.no] ? '<div class="box"><b>구성</b>'+escHtml(boxDesc(+it.no))+'</div>' : '';
+    const over = item && item.max && +it.count > item.max ? '<div class="cnt-warn">최대 '+fmt(item.max)+'</div>' : '';
+    return '<tr data-i="'+i+'"><td class="no">'+(+it.no||0)+'</td><td>'+name+box+'</td><td><input type="number" min="1" step="1" value="'+(+it.count||0)+'" data-i="'+i+'">'+over+'</td>'
+      + '<td><button type="button" class="btn small icon ghost" data-remove="'+i+'" title="제거">✕</button></td></tr>';
+  }).join('');
+}
+function renderIssues(c){
+  const v = validate(c), box = $('#issues');
+  box.className = 'issues-box ' + (v.errors.length ? 'err' : v.warns.length ? 'warn' : 'ok');
+  if (!v.errors.length && !v.warns.length){ box.innerHTML = '<div><span class="tag">OK</span><span>문제 없음. 내보내도 됩니다.</span></div>'; return; }
+  box.innerHTML = v.errors.map(e => '<div><span class="tag">오류</span><span>'+escHtml(e)+'</span></div>').join('') + v.warns.map(w => '<div><span class="tag">확인</span><span>'+escHtml(w)+'</span></div>').join('');
+}
+
+/* ==========================================================
+   렌더: 미리보기 / JSON / 요약
+   ========================================================== */
+function renderPreview(){
+  const c = current(), box = $('#mailPreview'), lang = state.lang;
+  setSeg('segLang', lang);
+  if (!c){ box.innerHTML = '<div class="mail"><div class="mail-body placeholder">우편을 선택하면 여기에 미리보기가 나옵니다.</div></div>'; $('#previewMeta').textContent=''; return; }
+  const pick = o => (lang === 'en' && o.en.trim()) ? o.en : o.ko;
+  const subj = c.useSubject ? pick(c.subject) : (lang==='en' ? strEn(+c.title) : strKr(+c.title));
+  const body = c.useDesc ? pick(c.desc) : unescText(lang==='en' ? strEn(+c.context) : strKr(+c.context));
+  const subjSrc = c.useSubject ? '' : 'title 스트링 '+(+c.title||0);
+  const bodySrc = c.useDesc ? '' : 'context 스트링 '+(+c.context||0);
+  $('#previewMeta').textContent = isTarget(c) ? ('특정 유저 ' + c.targets.length + '명 · ' + (c.delivery==='direct' ? '즉시 지급' : '접속 시 1회 · ' + condDate(c))) : ((c.type===T_DIRECT ? '즉시 발송 · ' : c.type===T_TIME ? '정한 시각 · ' : c.type===2 ? '접속 1회 · ' : '접속 매일 · ') + condDate(c));
+  const tiles = c.items.length ? c.items.map(it => {
+    const item = ITEM_MAP[+it.no];
+    if (!item) return '<div class="tile unknown"><div class="tn">no '+(+it.no||0)+'</div><div class="tc">×'+fmt(it.count)+'</div></div>';
+    return '<div class="tile" style="border-top-color:'+gradeColor(item.grade)+'" title="'+escHtml(item.kr+' (no '+item.no+')'+(BOXES[item.no] ? '\n'+boxDesc(item.no) : ''))+'"><div class="tn">'+escHtml(lang==='en' && item.en ? item.en : item.kr)+'</div><div class="tc">×'+fmt(it.count)+'</div></div>';
+  }).join('') : '<div class="none">첨부 아이템 없음</div>';
+  box.innerHTML = '<div class="mail'+(c.type===2?' t2':c.type===T_TIME?' t3':'')+'">'
+    + '<div class="mail-head"><div class="mail-from">보낸 사람<b>'+escHtml(pick(c.from)||'—')+'</b></div><div class="mail-keep">보관 기간<b>'+(+c.expire||0)+'일</b></div></div>'
+    + '<div class="mail-subject'+(subj?'':' placeholder')+'">'+escHtml(subj || '(제목 없음)')+'</div>'
+    + (subjSrc ? '<div class="mail-src">'+subjSrc+'</div>' : '')
+    + '<div class="mail-body'+(body?'':' placeholder')+'">'+escHtml(body || '(본문 없음)')+'</div>'
+    + (bodySrc ? '<div class="mail-src">'+bodySrc+'</div>' : '')
+    + '<div class="mail-items">'+tiles+'</div>'
+    + '<div class="mail-foot"><button class="fake" type="button" tabindex="-1">'+(lang==='en'?'Claim':'받기')+'</button></div>'
+    + '</div>';
+}
+let fileView = 'all';
+function renderJson(){
+  const c = current();
+  $('#jsonOut').innerHTML = c ? highlight(serialize(buildCondition(c))) : '<span class="muted">선택된 우편이 없습니다.</span>';
+  const tgN = state.conds.filter(isTarget).length;
+  $('#segFile button[data-v=target]').textContent = '특정 유저 파일' + (tgN ? ' (' + tgN + '건)' : '');
+  try {
+  $('#fileOut').innerHTML = fileView === 'target' ? (tgN ? highlight(serialize(buildTargetFile())) : '<span class="muted">특정 유저 우편이 없습니다.</span>') : highlight(serialize(buildFile()));
+  } catch(e){ $('#fileOut').textContent = e.message; }
+}
+function summaryOf(c){
+  const L = [];
+  L.push('[우편 발송 요청] ' + condLabel(c));
+  if (c.tpl && c.tpl !== 'custom') L.push('템플릿: ' + TPL_NAMES[c.tpl] + (c.tpl === 'emergency' ? ' (점검 ' + c.tplHours + '시간)' : ''));
+  if (isTarget(c)){
+    L.push('받는 사람: 특정 유저 ' + c.targets.length + '명 (' + deliveryLabel(c) + ')');
+    if (c.delivery !== 'direct') L.push('접속 기간: ' + condDate(c));
+    if (c.onetime_key) L.push('onetime_key: ' + c.onetime_key);
+  } else {
+  L.push('발송 타입: ' + (TYPE_LABEL[c.type] || TYPE_LABEL[1]));
+  L.push('발송일: ' + condDate(c) + (c.type===1 && c.dateMode==='day' ? ' (하루)' : ''));
+  if (c.type===2) L.push('onetime_key: ' + c.onetime_key);
+  }
+  if (c.type===T_TIME) L.push('발송 시각: 한국 시간 ' + (normTime(c.send_time) || '(미입력)') + ' (send_time ' + (kstToUtc(c.send_time) || '(미입력)') + ') · 매일 · 접속 여부와 무관');
+  const m = MAIL_MAP[+c.mail_no];
+  L.push('mail_no: ' + (+c.mail_no||0) + (m ? ' ('+m.memo+')' : '') + ' / title ' + (+c.title||0) + ' / context ' + (+c.context||0) + ' / 보관 ' + (+c.expire||0) + '일');
+  L.push('제목: ' + (c.useSubject ? c.subject.ko + (c.subject.en ? ' / ' + c.subject.en : '') : '스트링 no ' + (+c.title||0) + ' 사용'));
+  L.push('본문: ' + (c.useDesc ? c.desc.ko.replace(/\n+/g,' ') : '스트링 no ' + (+c.context||0) + ' 사용'));
+  L.push('발송인: ' + c.from.ko + (c.from.en ? ' / ' + c.from.en : ''));
+  L.push('아이템:' + (c.items.length ? '' : ' 없음'));
+  c.items.forEach(it => { const item = ITEM_MAP[+it.no]; L.push('  - ' + (item ? item.kr : '(알 수 없음)') + ' (no ' + (+it.no||0) + ') × ' + fmt(it.count)); });
+  if (isTarget(c)) L.push('대상 UID (' + c.targets.length + '명): ' + c.targets.join(', '));
+  return L.join('\n');
+}
+function renderSummary(){
+  if (!state.conds.length){ $('#sumOut').textContent = '우편이 없습니다.'; return; }
+  $('#sumOut').textContent = state.conds.map((c,i) => (state.conds.length>1 ? (i+1)+'. ' : '') + summaryOf(c)).join('\n\n');
+}
+function renderAll(){ renderList(); renderPreview(); renderJson(); renderSummary(); renderTargets(); updatePostButton(); save(); }
+function refresh(){ // 폼 입력 후 가벼운 갱신
+  const c = current(); if (c) renderIssues(c);
+  renderAll();
+}
+
+/* ==========================================================
+   폼 바인딩
+   ========================================================== */
+function bindForm(){
+  $('#segAudience').addEventListener('click', e => {
+    const b = e.target.closest('button'); const c = current(); if (!b || !c) return;
+    c.audience = b.dataset.v;
+    if (c.audience === 'target'){ if (c.type === T_DIRECT) c.delivery = 'direct'; c.type = 2; c.dateMode = 'period'; if (!isDate(c.begin_date)) c.begin_date = today(); if (!isDate(c.end_date) || c.end_date < c.begin_date) c.end_date = addDays(today(), 30); }
+    fillForm(); renderAll();
+    if (c.audience === 'target') toast('오른쪽 [대상·시트] 탭에 UID를 붙여넣으세요.');
+  });
+  $('#segDelivery').addEventListener('click', e => {
+    const b = e.target.closest('button'); const c = current(); if (!b || !c) return;
+    c.delivery = b.dataset.v; fillForm(); renderAll();
+  });
+  $('#btnGoTargets').addEventListener('click', () => { showTab('targets'); $('#fTargets').focus(); });
+  $('#fTargets').addEventListener('input', e => { const c = current(); if (!c) return; c.targetsRaw = e.target.value; syncTargets(c); const cur = renderTargets; renderIssues(c); renderList(); renderPreview(); renderJson(); renderSummary(); renderTargets(); save(); });
+  $('#btnTargetsClean').addEventListener('click', () => { const c = current(); if (!c) return; const p = parseTargets(c.targetsRaw); c.targetsRaw = p.ids.join('\n'); syncTargets(c); $('#fTargets').value = c.targetsRaw; refresh(); toast(p.ids.length + '명으로 정리했습니다.' + (p.dup ? ' 중복 ' + p.dup + '개 제거.' : '') + (p.bad.length ? ' 숫자 아닌 값 ' + p.bad.length + '개 제거.' : '')); });
+  $('#btnTargetsClear').addEventListener('click', () => { const c = current(); if (!c) return; if (c.targets.length && !confirm('UID ' + c.targets.length + '명을 지울까요?')) return; c.targetsRaw = ''; syncTargets(c); $('#fTargets').value = ''; refresh(); });
+  $('#btnCopyUids').addEventListener('click', async () => { const c = current(); if (!c) return; const ok = await copyText(c.targets.join('\n')); toast(ok ? 'UID ' + c.targets.length + '개를 복사했습니다.' : '복사 실패', !ok); });
+  $('#fCategory').addEventListener('input', e => { const c = current(); if (!c) return; c.category = e.target.value; renderTargets(); save(); });
+  $('#fSheetSeq').addEventListener('change', () => renderTargets());
+  $('#btnCopyRow').addEventListener('click', async () => { const c = current(); if (!c) return; const ok = await copyRich(sheetRowText(c), sheetRowHtml(c)); toast(ok ? '시트 행을 복사했습니다. 시트에서 셀 하나를 고르고 Ctrl+V 하세요.' : '복사 실패', !ok); });
+  $('#sheetTable').addEventListener('click', async e => { const b = e.target.closest('[data-col]'); const c = current(); if (!b || !c) return; const v = String(sheetValues(c)[+b.dataset.col] ?? ''); const ok = await copyText(v); toast(ok ? '"' + SHEET_COLS[+b.dataset.col] + '" 칸을 복사했습니다.' : '복사 실패', !ok); });
+  $('#segFile').addEventListener('click', e => { const b = e.target.closest('button'); if (!b) return; fileView = b.dataset.v; setSeg('segFile', fileView); $('#fileName').value = fileView === 'target' ? targetFileName() : 'actionEventData' + today().slice(5).replace('-','') + '.json'; renderJson(); });
+  const onTpl = e => { const b = e.target.closest('[data-tpl]'); if (b) applyTemplate(b.dataset.tpl); };
+  $('#tplGrid').addEventListener('click', onTpl);
+  $('#emptyTpl').addEventListener('click', onTpl);
+  $('#emHours').addEventListener('click', e => {
+    const b = e.target.closest('[data-h]'); const c = current(); if (!b || !c) return;
+    c.tplHours = +b.dataset.h; applyTemplate('emergency', {silent:true});
+    toast('점검 ' + c.tplHours + '시간 기준으로 본문과 보상을 바꿨습니다.');
+  });
+  $('#segReward').addEventListener('click', e => {
+    const b = e.target.closest('button'); const c = current(); if (!b || !c) return;
+    c.tplReward = b.dataset.v; applyTemplate(c.tpl, {silent:true});
+  });
+  $('#btnAutoKey').addEventListener('click', () => {
+    const c = current(); if (!c) return;
+    const base = (c.subject.ko || condLabel(c) || '우편').replace(/[\s,"'\[\]()!?.]/g,'').slice(0, 20) || '우편';
+    c.onetime_key = keyFor(c, base); $('#fKey').value = c.onetime_key; refresh();
+  });
+  $('#segType').addEventListener('click', e => {
+    const b = e.target.closest('button'); const c = current(); if (!b || !c) return;
+    c.type = b.dataset.v === T_DIRECT ? T_DIRECT : +b.dataset.v; if (c.type === 2 || c.type === T_TIME) c.dateMode = 'period';
+    if (c.type === T_TIME && !normTime(c.send_time)) c.send_time = '10:00';
+    fillForm(); renderAll();
+  });
+  $('#segDate').addEventListener('click', e => {
+    const b = e.target.closest('button'); const c = current(); if (!b || !c) return;
+    c.dateMode = b.dataset.v; fillForm(); renderAll();
+  });
+  $('#fLogin').addEventListener('input', e => { const c=current(); if(!c) return; c.login_date = e.target.value; refresh(); });
+  $$('#rowDay [data-preset]').forEach(b => b.addEventListener('click', () => { const c=current(); if(!c) return; c.login_date = addDays(today(), +b.dataset.preset); $('#fLogin').value = c.login_date; refresh(); }));
+  $('#fBegin').addEventListener('input', e => { const c=current(); if(!c) return; c.begin_date = e.target.value; if (c.end_date < c.begin_date){ c.end_date = c.begin_date; $('#fEnd').value = c.end_date; } updatePeriodHelp(c); refresh(); });
+  $('#fEnd').addEventListener('input', e => { const c=current(); if(!c) return; c.end_date = e.target.value; updatePeriodHelp(c); refresh(); });
+  $('#fKey').addEventListener('input', e => { const c=current(); if(!c) return; c.onetime_key = e.target.value; refresh(); });
+  $('#fSendTime').addEventListener('input', e => {
+    const c=current(); if(!c) return;
+    c.send_time = normTime(e.target.value) || e.target.value;
+    $('#sendTimeKst').textContent = utcHint(c.send_time);
+    $$('#sendTimePresets [data-time]').forEach(b => b.classList.toggle('on', b.dataset.time === normTime(c.send_time)));
+    refresh();
+  });
+  $$('#sendTimePresets [data-time]').forEach(b => b.addEventListener('click', () => {
+    const c=current(); if(!c) return;
+    c.send_time = b.dataset.time; $('#fSendTime').value = c.send_time;
+    $('#sendTimeKst').textContent = utcHint(c.send_time);
+    $$('#sendTimePresets [data-time]').forEach(x => x.classList.toggle('on', x.dataset.time === normTime(c.send_time)));
+    refresh();
+  }));
+
+  $('#fTemplate').addEventListener('change', e => {
+    const c = current(); if (!c) return;
+    const no = +e.target.value; const m = MAIL_MAP[no];
+    if (!m){ c.mail_no = 0; c.title = 0; c.context = 0; c.useSubject = true; c.useDesc = true; fillForm(); renderAll(); return; }
+    c.mail_no = m.no; c.title = m.title; c.context = m.context; if (m.expire) c.expire = m.expire;
+    const s = parseLang(m.subject_text), d = parseLang(m.desc_text), f = parseLang(m.from_text);
+    if (s){ c.subject = s; c.useSubject = true; } if (d){ c.desc = d; c.useDesc = true; } if (f) c.from = f;
+    if (m.reward_no && !c.items.some(i => +i.no === m.reward_no)) c.items.push({no:m.reward_no, count:m.reward_count||1});
+    fillForm(); renderAll(); toast('템플릿 '+m.no+' 값을 불러왔습니다. 필요하면 고쳐 쓰세요.');
+  });
+  $('#fMailNo').addEventListener('input', e => { const c=current(); if(!c) return; c.mail_no = +e.target.value||0; $('#fTemplate').value = MAIL_MAP[c.mail_no] ? String(c.mail_no) : '0'; refresh(); });
+  $('#fTitle').addEventListener('input', e => { const c=current(); if(!c) return; c.title = +e.target.value||0; updateStringRefs(c); refresh(); });
+  $('#fContext').addEventListener('input', e => { const c=current(); if(!c) return; c.context = +e.target.value||0; updateStringRefs(c); refresh(); });
+  $('#fExpire').addEventListener('input', e => { const c=current(); if(!c) return; c.expire = +e.target.value||0; refresh(); });
+
+  $('#fUseSubject').addEventListener('change', e => { const c=current(); if(!c) return; c.useSubject = e.target.checked; fillForm(); renderAll(); });
+  $('#fUseDesc').addEventListener('change', e => { const c=current(); if(!c) return; c.useDesc = e.target.checked; fillForm(); renderAll(); });
+  $('#fSubKo').addEventListener('input', e => { const c=current(); if(!c) return; c.subject.ko = e.target.value; refresh(); });
+  $('#fSubEn').addEventListener('input', e => { const c=current(); if(!c) return; c.subject.en = e.target.value; refresh(); });
+  $('#fDescKo').addEventListener('input', e => { const c=current(); if(!c) return; c.desc.ko = e.target.value; refresh(); });
+  $('#fDescEn').addEventListener('input', e => { const c=current(); if(!c) return; c.desc.en = e.target.value; refresh(); });
+  $('#fFromKo').addEventListener('input', e => { const c=current(); if(!c) return; c.from.ko = e.target.value; renderFromPresets(c); refresh(); });
+  $('#fFromEn').addEventListener('input', e => { const c=current(); if(!c) return; c.from.en = e.target.value; refresh(); });
+  $('#fromPresets').addEventListener('click', e => { const b = e.target.closest('.chip'); const c=current(); if(!b||!c) return; c.from = {ko:b.dataset.ko, en:b.dataset.en}; $('#fFromKo').value=c.from.ko; $('#fFromEn').value=c.from.en; renderFromPresets(c); refresh(); });
+  $('#fEscape').addEventListener('change', e => { state.escape = e.target.checked; renderAll(); });
+
+  // 아이템
+  $('#quickItems').innerHTML = QUICK_ITEMS.filter(n => ITEM_MAP[n]).map(n => '<button type="button" class="chip" data-add="'+n+'">'+escHtml(ITEM_MAP[n].kr)+'<span class="no">'+n+'</span></button>').join('');
+  $('#quickItems').addEventListener('click', e => { const b = e.target.closest('[data-add]'); if (b) addItem(+b.dataset.add); });
+  $('#itemFilter').addEventListener('click', e => { const b = e.target.closest('.chip'); if (!b) return; state.filter = b.dataset.t; $$('#itemFilter .chip').forEach(x => x.classList.toggle('on', x===b)); renderResults(); });
+  const search = $('#itemSearch');
+  search.addEventListener('input', renderResults);
+  search.addEventListener('focus', renderResults);
+  search.addEventListener('keydown', e => {
+    const res = $('#itemResults'); const lis = Array.from(res.querySelectorAll('li'));
+    let idx = lis.findIndex(l => l.classList.contains('active'));
+    if (e.key === 'ArrowDown'){ e.preventDefault(); idx = Math.min(idx+1, lis.length-1); lis.forEach((l,i)=>l.classList.toggle('active',i===idx)); lis[idx]?.scrollIntoView({block:'nearest'}); }
+    else if (e.key === 'ArrowUp'){ e.preventDefault(); idx = Math.max(idx-1, 0); lis.forEach((l,i)=>l.classList.toggle('active',i===idx)); lis[idx]?.scrollIntoView({block:'nearest'}); }
+    else if (e.key === 'Enter'){ e.preventDefault(); const li = lis[idx>=0?idx:0]; if (li){ addItem(+li.dataset.no); search.value=''; renderResults(); } }
+    else if (e.key === 'Escape'){ res.hidden = true; }
+  });
+  $('#itemResults').addEventListener('mousedown', e => { const li = e.target.closest('li[data-no]'); if (!li) return; e.preventDefault(); addItem(+li.dataset.no); search.value=''; renderResults(); search.focus(); });
+  document.addEventListener('click', e => { if (!e.target.closest('.search-wrap')) $('#itemResults').hidden = true; });
+  $('#itemRows').addEventListener('input', e => { const inp = e.target.closest('input[data-i]'); const c=current(); if(!inp||!c) return; c.items[+inp.dataset.i].count = +inp.value||0; refresh(); });
+  $('#itemRows').addEventListener('change', e => { const c=current(); if (c) renderItemRows(c); });
+  $('#itemRows').addEventListener('click', e => { const b = e.target.closest('[data-remove]'); const c=current(); if(!b||!c) return; c.items.splice(+b.dataset.remove,1); renderItemRows(c); refresh(); });
+}
+function addItem(no){
+  const c = current(); if (!c) return;
+  const item = ITEM_MAP[no]; if (!item){ toast('아이템 '+no+'은 없습니다.', true); return; }
+  const ex = c.items.find(i => +i.no === no);
+  if (ex){ toast(item.kr+'은 이미 목록에 있습니다. 수량을 조정하세요.'); }
+  else c.items.push({no, count:1});
+  renderItemRows(c); refresh();
+  const inp = $('#itemRows input[data-i="'+(c.items.length-1)+'"]'); if (inp && !ex){ inp.focus(); inp.select(); }
+}
+function renderResults(){
+  const q = $('#itemSearch').value.trim().toLowerCase(); const res = $('#itemResults');
+  if (document.activeElement !== $('#itemSearch')) { res.hidden = true; return; }
+  let list = ITEMS.filter(i => state.filter === 'all' || String(i.type) === state.filter);
+  if (q) list = list.filter(i => String(i.no).startsWith(q) || i.kr.toLowerCase().includes(q) || i.en.toLowerCase().includes(q));
+  list = list.slice(0, 40);
+  res.hidden = false;
+  res.innerHTML = list.length
+    ? '<ul>'+list.map((i,k) => '<li data-no="'+i.no+'"'+(k===0?' class="active"':'')+'><span class="no">'+i.no+'</span><span><span class="grade" style="background:'+gradeColor(i.grade)+'"></span>'+escHtml(i.kr)+'<span class="en">'+escHtml(i.en)+'</span></span><span class="badge n">'+(TYPE_NAMES[i.type]||'')+(i.type===4?' '+escHtml(gradeName(i.grade)):'')+'</span></li>').join('')+'</ul>'
+    : '<div class="none">검색 결과가 없습니다.</div>';
+}
+
+/* ==========================================================
+   목록 조작 / 가져오기 / 내보내기
+   ========================================================== */
+function select(id){ state.selected = id; fillForm(); renderAll(); }
+function addCond(base){
+  const c = base ? JSON.parse(JSON.stringify(base)) : newCond();
+  c.id = uid(); if (base && c.type===2) c.onetime_key = c.onetime_key + ' (복사)';
+  state.conds.push(c); select(c.id);
+  if (!base) { $('#fTemplate').focus(); }
+}
+function removeCond(id){
+  const i = state.conds.findIndex(c => c.id === id); if (i<0) return;
+  state.conds.splice(i,1);
+  state.selected = state.conds[Math.min(i, state.conds.length-1)]?.id || null;
+  fillForm(); renderAll();
+}
+function fromCondition(cd, type){
+  const c = newCond(); c.type = (type === 2 || type === T_TIME) ? type : 1;
+  if (c.type === T_TIME){ c.dateMode='period'; c.begin_date = cd.begin_date||''; c.end_date = cd.end_date||''; c.send_time = utcToKst(cd.send_time) || (cd.send_time||''); }
+  else if (c.type === 2){ c.dateMode='period'; c.onetime_key = cd.onetime_key||''; c.begin_date = cd.begin_date||''; c.end_date = cd.end_date||''; }
+  else if (cd.login_date){ c.dateMode='day'; c.login_date = cd.login_date; }
+  else { c.dateMode='period'; c.begin_date = cd.begin_date||''; c.end_date = cd.end_date||''; }
+  c.mail_no = +cd.mail_no||0; c.title = +cd.title||0; c.context = +cd.context||0; c.expire = +cd.expire||0;
+  const s = parseLang(cd.subject_text), d = parseLang(cd.desc_text), f = parseLang(cd.from_text);
+  c.useSubject = !!s; c.subject = s || {ko:'',en:''};
+  c.useDesc = !!d; c.desc = d || {ko:'',en:''};
+  c.from = f || {ko:'',en:''};
+  c.items = Array.isArray(cd.mail_items) ? cd.mail_items.map(a => ({no:+a[0]||0, count:+a[1]||0})) : [];
+  if (Array.isArray(cd.target_uids)){
+    c.audience = 'target'; c.type = 2; c.dateMode = 'period';
+    c.delivery = cd.delivery === 'direct' ? 'direct' : 'login';
+    c.onetime_key = cd.onetime_key || ''; c.begin_date = cd.begin_date || ''; c.end_date = cd.end_date || '';
+    c.targetsRaw = cd.target_uids.map(String).join('\n'); syncTargets(c);
+  }
+  c.extra = {}; for (const k in cd) if (!KNOWN_KEYS.has(k)) c.extra[k] = cd[k];
+  return c;
+}
+function importText(text){
+  let arr; try { arr = JSON.parse(text); } catch(e){ toast('JSON을 읽지 못했습니다: '+e.message, true); return; }
+  if (!Array.isArray(arr)) { toast('최상위가 배열이 아닙니다. actionEventData.json 형식이 맞는지 확인하세요.', true); return; }
+  const conds = [];
+  for (const b of arr){
+    if (!b || !Array.isArray(b.conditions)) continue;
+    for (const cd of b.conditions) {
+      // type 누락 데이터도 onetime_key / send_time 유무로 안전하게 판별
+      const inferredType = (+b.type === T_TIME || cd?.send_time) ? T_TIME
+        : (+b.type === 2 || cd?.onetime_key || Array.isArray(cd?.target_uids)) ? 2 : 1;
+      conds.push(fromCondition(cd, inferredType));
+    }
+  }
+  if (!conds.length){ toast('불러올 condition이 없습니다.', true); return; }
+  let replace = true;
+  if (state.conds.length) replace = confirm('현재 목록 '+state.conds.length+'건이 있습니다.\n\n[확인] 기존 목록을 지우고 새 JSON으로 교체\n[취소] 기존 목록 뒤에 이어서 추가');
+  if (replace) state.conds = conds; else state.conds.push(...conds);
+  state.selected = conds[0].id; fillForm(); renderAll();
+  toast(conds.length+'건을 불러왔습니다.');
+}
+function showTab(name){ $$('#tabs button').forEach(x => x.classList.toggle('on', x.dataset.tab === name)); $$('.tabpanel').forEach(p => p.classList.toggle('on', p.id === 'tab-' + name)); }
+function downloadBlob(text, name){ const blob = new Blob([text], {type:'application/json'}); const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = name; document.body.appendChild(a); a.click(); setTimeout(()=>{ URL.revokeObjectURL(a.href); a.remove(); }, 400); }
+function download(){
+  if (fileView !== 'target' && state.conds.some(c => c.type === T_DIRECT)){ toast('즉시 발송은 request JSON 내려받기 또는 POST 전송을 사용하세요.', true); return; }
+  const errs = state.conds.map(c => validate(c).errors.length).reduce((a,b)=>a+b,0);
+  if (!state.conds.length){ toast('내보낼 우편이 없습니다.', true); return; }
+  if (errs && !confirm('오류가 '+errs+'건 있습니다. 그래도 내려받을까요?')) return;
+  const allN = state.conds.filter(c => !isTarget(c)).length, tg = state.conds.filter(isTarget), tgUsers = tg.reduce((a,c) => a + c.targets.length, 0);
+  let name = ($('#fileName').value.trim() || 'actionEventData.json'); if (!name.endsWith('.json')) name += '.json';
+  if (fileView === 'target'){
+    if (!tg.length){ toast('특정 유저 우편이 없습니다.', true); return; }
+    downloadBlob(serialize(buildTargetFile())+'\n', name); toast(name + ' 내려받기 시작 (특정 유저 ' + tg.length + '건, ' + tgUsers + '명)'); return;
+  }
+  if (tg.length){
+    const msg = '두 파일로 나눠서 내려받습니다.\n\n· 모든 유저 우편 ' + allN + '건 → ' + name + '\n· 특정 유저 우편 ' + tg.length + '건 (총 ' + tgUsers + '명) → ' + targetFileName() + '\n\n특정 유저 우편은 전체 발송 파일에 절대 들어가지 않습니다.';
+    if (!confirm(msg)) return;
+    if (allN) downloadBlob(serialize(buildFile())+'\n', name);
+    setTimeout(() => downloadBlob(serialize(buildTargetFile())+'\n', targetFileName()), allN ? 600 : 0);
+    toast((allN ? name + ' + ' : '') + targetFileName() + ' 내려받기 시작');
+    return;
+  }
+  downloadBlob(serialize(buildFile())+'\n', name);
+  toast(name+' 내려받기 시작');
+}
+async function copyText(text){
+  try { await navigator.clipboard.writeText(text); return true; }
+  catch(e){ const ta = document.createElement('textarea'); ta.value = text; document.body.appendChild(ta); ta.select(); let ok=false; try{ ok = document.execCommand('copy'); }catch(_){} ta.remove(); return ok; }
+}
+let toastTimer;
+function toast(msg, isErr){ const t = $('#toast'); t.textContent = msg; t.className = 'toast show'+(isErr?' err':''); clearTimeout(toastTimer); toastTimer = setTimeout(()=>t.classList.remove('show'), 2600); }
+
+/* ==========================================================
+   참조 모달
+   ========================================================== */
+function renderRef(tab){
+  const body = $('#refBody'); $('#refItemTools').hidden = tab !== 'items';
+  $$('#refTabs button').forEach(b => b.classList.toggle('on', b.dataset.tab===tab));
+  if (tab === 'mails'){
+    body.innerHTML = '<table class="ref-table"><thead><tr><th>no</th><th>분류</th><th>제목 (kr)</th><th>본문 스트링</th><th>보관</th><th>기본 보상</th><th></th></tr></thead><tbody>'
+      + MAILS.map(m => '<tr><td class="no">'+m.no+'</td><td class="nw">'+(MAIL_TYPE_NAMES[m.type]||m.type)+'</td><td>'+escHtml(m.memo||m.title_kr)+'<div class="muted">title '+m.title+' · '+escHtml(m.title_kr)+'</div></td><td class="muted">context '+m.context+'<br>'+escHtml(unescText(m.context_kr)).slice(0,60)+'</td><td class="nw">'+m.expire+'일</td><td>'+(m.reward_no ? escHtml((ITEM_MAP[m.reward_no]||{}).kr||('no '+m.reward_no))+' ×'+m.reward_count : '—')+'</td><td class="nw"><button class="use" data-use-mail="'+m.no+'">적용</button></td></tr>').join('')
+      + '</tbody></table>';
+  } else if (tab === 'items'){
+    const q = $('#refItemSearch').value.trim().toLowerCase();
+    let list = ITEMS; if (q) list = list.filter(i => String(i.no).startsWith(q) || i.kr.toLowerCase().includes(q) || i.en.toLowerCase().includes(q));
+    $('#refItemCount').textContent = list.length+'개';
+    body.innerHTML = '<table class="ref-table"><thead><tr><th>no</th><th>이름</th><th>타입</th><th>등급</th><th>최대 보유</th><th>구성</th><th></th></tr></thead><tbody>'
+      + list.slice(0,400).map(i => '<tr><td class="no">'+i.no+'</td><td>'+escHtml(i.kr)+'<div class="muted">'+escHtml(i.en)+'</div></td><td class="nw">'+(TYPE_NAMES[i.type]||i.type)+'</td><td class="nw"><span class="grade" style="background:'+gradeColor(i.grade)+'"></span>'+escHtml(gradeName(i.grade))+'</td><td class="no">'+fmt(i.max)+'</td><td class="muted">'+escHtml(boxDesc(i.no))+'</td><td class="nw"><button class="use" data-use-item="'+i.no+'">추가</button></td></tr>').join('')
+      + '</tbody></table>';
+  } else {
+    body.innerHTML = '<div style="padding:18px 22px;max-width:720px;line-height:1.7;font-size:13.5px">'
+      + '<h3 style="margin-bottom:6px">actionEventData.json 작성 규칙</h3>'
+      + '<p>이 도구는 아래 규칙을 자동으로 지킵니다. 손으로 고칠 때 참고하세요.</p>'
+      + '<ul style="padding-left:18px;margin:8px 0 16px">'
+      + '<li>최상위 배열에 <b>type 1</b>(매일 발송), <b>type 2</b>(기간 내 1회), <b>type 10000</b>(기간 내 지정 시각 발송) 블록이 나란히 들어갑니다. 타입 블록을 다른 타입의 conditions 안에 넣지 않습니다.</li>'
+      + '<li>하루만 발송이면 <code>login_date</code>만, 기간이면 <code>login_date: ""</code> + <code>begin_date</code>/<code>end_date</code>. type 2는 <code>onetime_key</code> + begin/end 만 사용합니다.</li>'
+      + '<li><code>onetime_key</code>는 type 2 우편끼리 절대 중복되면 안 됩니다.</li>'
+      + '<li><b>type 10000</b>(<code>PERIOD_TARGET_TIME_ONE_TIME_REWARD</code>)은 <code>begin_date</code>/<code>end_date</code>/<code>send_time</code>만 사용합니다. <code>login_date</code>와 <code>onetime_key</code>는 넣지 않습니다.</li>'
+      + '<li><code>send_time</code>은 <b>UTC 기준</b> 시각이며 <code>1:00</code>, <code>13:00</code>처럼 앞자리 0 없이 적습니다. 이 도구에서는 한국 시간으로 입력하면 9시간을 빼서 자동으로 변환합니다. (한국 20:00 → <code>11:00</code>)</li>'
+      + '<li>제목/본문/발송인은 <code>{"ko": "...", "en": "..."}</code> 형태의 문자열입니다. 직접 지정하지 않으면 <code>""</code>로 두고 title/context 스트링 no를 씁니다.</li>'
+      + '<li>텍스트 치환: 줄바꿈 → <code>/n</code>, 쉼표 → <code>/1</code>, 큰따옴표 → <code>/2</code>, 작은따옴표 → <code>/3</code></li>'
+      + '<li><code>subject_text</code>, <code>desc_text</code>, <code>from_text</code>는 신규 규격에 맞춰 <code>{&quot;ko&quot;:&quot;...&quot;,&quot;en&quot;:&quot;...&quot;}</code> 객체로 출력합니다. 예전 JSON 문자열 형식도 불러오기는 지원합니다.</li>'
+      + '<li><code>mail_items</code>는 <code>[[아이템no, 개수], ...]</code> 이고 내부 배열은 한 줄로 씁니다.</li>'
+      + '<li>영문 유저 호칭은 <b>Syncer</b> (Sinker 아님). 영문 게임명은 <b>AgathaIdle</b>로 통일.</li>'
+      + '<li><b>특정 유저 발송</b>: 전체 발송 파일에 넣지 않고 targetMail.json으로 따로 냅니다. condition 모양은 type 2와 같고 <code>target_uids</code>(UID 배열)와 <code>delivery</code>(login_period / direct)가 추가됩니다. 서버 형식이 정해지면 이 파일 모양만 맞추면 됩니다.</li>'
+      + '</ul>'
+      + '<h3 style="margin-bottom:6px">데이터 출처</h3>'
+      + '<p class="muted">Mail.xlsx '+MAILS.length+'건, Item.xlsx '+DATA.items.length+'건, ItemBox 구성 '+Object.keys(BOXES).length+'종, LocalizedString 우편 관련 '+Object.keys(STR).length+'건이 이 파일 안에 내장되어 있습니다. 테이블이 바뀌면 파일을 다시 생성해야 합니다.</p>'
+      + '</div>';
+  }
+}
+function openRef(tab){ $('#refModal').hidden = false; renderRef(tab||'mails'); }
+function closeRef(){ $('#refModal').hidden = true; }
+
+/* ==========================================================
+   초기화
+   ========================================================== */
+function init(){
+  // 템플릿 셀렉트
+  const groups = {};
+  MAILS.forEach(m => (groups[m.type] = groups[m.type] || []).push(m));
+  $('#fTemplate').innerHTML = '<option value="0">[0] 템플릿 없음 (직접 입력)</option>' + Object.keys(groups).map(t =>
+    '<optgroup label="'+(MAIL_TYPE_NAMES[t]||('type '+t))+'">' + groups[t].map(m => '<option value="'+m.no+'">['+m.no+'] '+escHtml(m.memo||m.title_kr)+' ('+m.expire+'일)</option>').join('') + '</optgroup>'
+  ).join('');
+
+  bindForm();
+  $('#btnAdd').addEventListener('click', () => addCond());
+  $('#btnDup').addEventListener('click', () => { const c=current(); if (c) addCond(c); });
+  $('#btnDel').addEventListener('click', () => { const c=current(); if (c && confirm('"'+condLabel(c)+'" 우편을 삭제할까요?')) removeCond(c.id); });
+  $('#btnClear').addEventListener('click', () => { if (state.conds.length && confirm('목록 '+state.conds.length+'건을 모두 지울까요?')){ state.conds=[]; state.selected=null; fillForm(); renderAll(); } });
+  $('#condList').addEventListener('click', e => { const b = e.target.closest('.cond'); if (b) select(b.dataset.id); });
+  $('#btnImport').addEventListener('click', () => $('#fileInput').click());
+  $('#fileInput').addEventListener('change', e => { const f = e.target.files[0]; if (!f) return; f.text().then(importText); e.target.value=''; });
+  document.addEventListener('paste', e => {
+    if (e.target.matches('input,textarea')) return;
+    const t = (e.clipboardData||window.clipboardData).getData('text'); if (t && t.trim().startsWith('[')) { importText(t); }
+  });
+  $('#btnDownload').addEventListener('click', download);
+  $('#btnDownload2').addEventListener('click', download);
+  $('#btnRequestDownload').addEventListener('click', downloadRequest);
+  $('#btnPost').addEventListener('click', postRequest);
+  $('#postSenderId').addEventListener('input', updatePostButton);
+  $('#postKey').addEventListener('input', updatePostButton);
+  updatePostButton();
+  loadPostConfig();
+  $$('[data-copy]').forEach(b => b.addEventListener('click', async () => { const ok = await copyText($('#'+b.dataset.copy).textContent); toast(ok ? '복사했습니다.' : '복사에 실패했습니다. 직접 드래그해서 복사하세요.', !ok); }));
+  $('#tabs').addEventListener('click', e => { const b = e.target.closest('button'); if (!b) return; showTab(b.dataset.tab); });
+  $('#segLang').addEventListener('click', e => { const b = e.target.closest('button'); if (!b) return; state.lang = b.dataset.v; renderPreview(); save(); });
+  $('#btnRef').addEventListener('click', () => openRef('mails'));
+  $('#btnRefClose').addEventListener('click', closeRef);
+  $('#refModal').addEventListener('click', e => { if (e.target === $('#refModal')) closeRef(); });
+  $('#refTabs').addEventListener('click', e => { const b = e.target.closest('button'); if (b) renderRef(b.dataset.tab); });
+  $('#refItemSearch').addEventListener('input', () => renderRef('items'));
+  $('#refBody').addEventListener('click', e => {
+    const m = e.target.closest('[data-use-mail]'), it = e.target.closest('[data-use-item]');
+    if (m){ if (!current()) addCond(); $('#fTemplate').value = m.dataset.useMail; $('#fTemplate').dispatchEvent(new Event('change')); closeRef(); }
+    if (it){ if (!current()) addCond(); addItem(+it.dataset.useItem); }
+  });
+  document.addEventListener('keydown', e => { if (e.key === 'Escape' && !$('#refModal').hidden) closeRef(); });
+  $$('.wrapToggle').forEach(cb => cb.addEventListener('change', e => { $$('.wrapToggle').forEach(x => x.checked = e.target.checked); document.body.classList.toggle('wrapjson', e.target.checked); }));
+  $('#fileName').value = 'actionEventData'+today().slice(5).replace('-','')+'.json';
+
+  const restored = load();
+  if (restored) $('#draftNote').textContent = '이전 작업을 복원했습니다';
+  if (!state.conds.length) state.selected = null;
+  else if (!current()) state.selected = state.conds[0].id;
+  fillForm(); renderAll();
+}
+init();
+</script>
+</body>
+</html>
