@@ -1078,7 +1078,7 @@ function downloadRequest(){
   catch(e){ toast(e.message, true); }
 }
 let postInFlight = false;
-let postEndpoint = '<%=POST_URL_SEND_MAIL%>>';
+let postEndpoint = '<%=POST_URL_SEND_MAIL%>';
 
 function canPostImmediately(){
   return state.conds.length > 0 && state.conds.every(c => isTarget(c) ? c.delivery === 'direct' : c.type === T_DIRECT);
