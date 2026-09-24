@@ -2,7 +2,7 @@ const express = require('express');
 const router = express.Router();
 
 /* GET home page. */
-router.get('/', function(req, res, next) {
+router.get('/gmtool', function(req, res, next) {
   res.render('mail_send', {
     POST_URL_SEND_MAIL: process.env.POST_URL_SEND_MAIL,
     ADMIN_EXECUTE_FIRST_KEY: process.env.ADMIN_EXECUTE_FIRST_KEY,

@@ -1704,7 +1704,6 @@ function init(){
   $('#postSenderId').addEventListener('input', updatePostButton);
   $('#postKey').addEventListener('input', updatePostButton);
   updatePostButton();
-  loadPostConfig();
   $$('[data-copy]').forEach(b => b.addEventListener('click', async () => { const ok = await copyText($('#'+b.dataset.copy).textContent); toast(ok ? '복사했습니다.' : '복사에 실패했습니다. 직접 드래그해서 복사하세요.', !ok); }));
   $('#tabs').addEventListener('click', e => { const b = e.target.closest('button'); if (!b) return; showTab(b.dataset.tab); });
   $('#segLang').addEventListener('click', e => { const b = e.target.closest('button'); if (!b) return; state.lang = b.dataset.v; renderPreview(); save(); });
