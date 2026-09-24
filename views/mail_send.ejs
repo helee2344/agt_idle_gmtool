@@ -1082,24 +1082,7 @@ function downloadRequest(){
 }
 let postInFlight = false;
 let postEndpoint = '';
-async function loadPostConfig(){
-  postEndpoint = '';
-  updatePostButton();
-  try {
-    if (location.protocol === 'file:') throw new Error('npm start 실행 후 http://127.0.0.1:3000 에서 열어주세요.');
-    alert('<%=POST_URL_SEND_MAIL %>')
-    const res = await fetch( '<%=POST_URL_SEND_MAIL %>', {cache:'no-store'});
-    const config = await res.json();
-    if (!res.ok) throw new Error(config.error || 'POST URL 설정을 읽지 못했습니다.');
-    const url = new URL(config.postUrl);
-    if (!['http:', 'https:'].includes(url.protocol)) throw new Error('POST URL 설정이 올바르지 않습니다.');
-    postEndpoint = url.href;
-    $('#postEndpoint').textContent = postEndpoint;
-  } catch(e){
-    $('#postEndpoint').textContent = e.message;
-  }
-  updatePostButton();
-}
+
 function canPostImmediately(){
   return state.conds.length > 0 && state.conds.every(c => isTarget(c) ? c.delivery === 'direct' : c.type === T_DIRECT);
 }
