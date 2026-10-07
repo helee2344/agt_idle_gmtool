@@ -3,4 +3,4 @@
 set -eu
 
 cd "$(dirname "$0")"
-exec npm run start
+exec npm run start_live_2
