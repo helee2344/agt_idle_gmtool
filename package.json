@@ -6,7 +6,7 @@
     "_start": "node ./bin/www",
     "start_live_1": "pm2 start ecosystem.live_1.config.js --only Live_1_GMTool_SendMail",
     "start_live_2": "pm2 start ecosystem.live_2.config.js --only Live_2_GMTool_SendMail",
-    "start_live_3": "pm2 start ecosystem.live_2.config.js --only Live_3_GMTool_SendMail",
+    "start_live_3": "pm2 start ecosystem.live_3.config.js --only Live_3_GMTool_SendMail",
     "stop": "pm2 stop GMTool_SendMail",
     "restart": "pm2 restart ecosystem.config.js --only GMTool_SendMail --update-env",
     "logs": "pm2 logs GMTool_SendMail"
